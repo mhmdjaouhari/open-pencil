@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "Estilos de texto mistos",
   "ruleNoMixedStylesHelp": "Vários estilos em uma mesma camada de texto são fáceis de quebrar ao editar.",
   "ruleNoDetachedInstances": "Parece um componente",
-  "ruleNoDetachedInstancesHelp": "Este frame parece um elemento reutilizável. Use uma instância de componente."
+  "ruleNoDetachedInstancesHelp": "Este frame parece um elemento reutilizável. Use uma instância de componente.",
+  "ruleLibraryComponents": "Componente local",
+  "ruleLibraryComponentsHelp": "Este documento usa uma biblioteca de componentes. Os componentes próprios são propostas até que a biblioteca os adicione."
 }

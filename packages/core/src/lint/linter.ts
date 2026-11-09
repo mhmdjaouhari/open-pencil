@@ -3,6 +3,7 @@ import { uniq } from 'es-toolkit'
 import type { SceneGraph, SceneNode } from '@open-pencil/scene-graph'
 import { colorToHex } from '@open-pencil/scene-graph/color'
 import { GENERATED_FRAME_TYPES, generatedFrameOwner } from '@open-pencil/scene-graph/generated'
+import { instanceMainComponent } from '@open-pencil/scene-graph/instances'
 
 import { presets } from './presets'
 import { allRules } from './rules'
@@ -49,6 +50,19 @@ function effectiveTextStyles(node: SceneNode): { fontSize: number; fontWeight: n
     fontWeight: run.style.fontWeight ?? base.fontWeight
   }))
   return coveredCharacters(inText, length) < length || runs.length === 0 ? [base, ...runs] : runs
+}
+
+/**
+ * Whether a component, set, or instance's definition is a published library's: it, or the asset
+ * holding it such as a variant's set, is a read-only library copy, as edit capabilities read it
+ * (`packages/core/src/editor/capabilities.ts`). An instance follows its main component.
+ */
+function fromLibrary(graph: SceneGraph, node: SceneNode): boolean | undefined {
+  const readOnly = (definition: SceneNode | undefined) =>
+    !!definition && !!graph.closest(definition.id, (layer) => !!layer.librarySource?.readOnly)
+  if (node.type === 'INSTANCE') return readOnly(instanceMainComponent(graph, node))
+  if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') return readOnly(node)
+  return undefined
 }
 
 /** Sticky notes, shapes, and connectors: FigJam's own layers, which lint leaves alone. */
@@ -125,6 +139,7 @@ export class Linter {
     if (!this.graph || !raw) return undefined
     const node = this.toLintNode(raw)
     node.parent = parent
+    node.fromLibrary = fromLibrary(this.graph, raw)
     this.nodes.set(id, node)
     return node
   }
@@ -184,6 +199,9 @@ export class Linter {
 
   private ruleChecks(): { rule: Rule; context: RuleContext }[] {
     const checks: { rule: Rule; context: RuleContext }[] = []
+    const usesLibraries = [...(this.graph?.enabledLibraries.values() ?? [])].some(
+      (binding) => binding.enabled
+    )
     for (const [ruleId, rule] of this.rules) {
       const config = this.ruleConfigs.get(ruleId)
       if (!config || config.severity === 'off') continue
@@ -192,6 +210,7 @@ export class Linter {
         rule,
         context: {
           variables: this.variables,
+          usesLibraries,
           report: ({ node, message, suggest, data, fix, suggestions }) => {
             this.messages.push({
               ruleId,

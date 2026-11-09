@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "混合文字样式",
   "ruleNoMixedStylesHelp": "一个文字图层中的多种样式在编辑时容易被破坏。",
   "ruleNoDetachedInstances": "看起来像组件",
-  "ruleNoDetachedInstancesHelp": "这个画框看起来像可复用元素。请使用组件实例。"
+  "ruleNoDetachedInstancesHelp": "这个画框看起来像可复用元素。请使用组件实例。",
+  "ruleLibraryComponents": "本地组件",
+  "ruleLibraryComponentsHelp": "此文档使用组件库。在组件库收录之前，文档自己的组件都只是提案。"
 }

@@ -40,7 +40,8 @@ const RULE_COPY: Partial<Record<string, RuleCopy>> = {
   'no-detached-instances': {
     title: 'ruleNoDetachedInstances',
     help: 'ruleNoDetachedInstancesHelp'
-  }
+  },
+  'library-components': { title: 'ruleLibraryComponents', help: 'ruleLibraryComponentsHelp' }
 }
 
 const SPACING_DETAIL = {

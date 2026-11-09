@@ -102,7 +102,11 @@ export const designCheckMessageDefaults = {
   ruleNoMixedStyles: 'Mixed text styles',
   ruleNoMixedStylesHelp: 'Several styles in one text layer are easy to break when editing.',
   ruleNoDetachedInstances: 'Looks like a component',
-  ruleNoDetachedInstancesHelp: 'This frame looks like a reusable element. Use a component instance.'
+  ruleNoDetachedInstancesHelp:
+    'This frame looks like a reusable element. Use a component instance.',
+  ruleLibraryComponents: 'Local component',
+  ruleLibraryComponentsHelp:
+    'This document uses a component library. Components of its own are proposals until the library adds them.'
 } as const
 
 export const designCheckMessages = i18n('designCheck', designCheckMessageDefaults)

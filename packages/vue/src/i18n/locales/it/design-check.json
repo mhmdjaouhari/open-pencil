@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "Stili di testo misti",
   "ruleNoMixedStylesHelp": "Più stili in un solo livello di testo si rompono facilmente durante la modifica.",
   "ruleNoDetachedInstances": "Sembra un componente",
-  "ruleNoDetachedInstancesHelp": "Questa cornice sembra un elemento riutilizzabile. Usa un’istanza di componente."
+  "ruleNoDetachedInstancesHelp": "Questa cornice sembra un elemento riutilizzabile. Usa un’istanza di componente.",
+  "ruleLibraryComponents": "Componente locale",
+  "ruleLibraryComponentsHelp": "Questo documento usa una libreria di componenti. I suoi componenti sono proposte finché la libreria non li aggiunge."
 }

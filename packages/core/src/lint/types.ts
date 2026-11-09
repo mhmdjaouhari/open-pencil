@@ -99,6 +99,11 @@ export interface LintNode {
   cornerRadius: number
   childIds: string[]
   componentId?: string
+  /**
+   * For a component, component set, or instance: whether its definition is a published
+   * library's, which the document holds read-only.
+   */
+  fromLibrary?: boolean
   text: string
   fontSize: number
   /**
@@ -137,6 +142,8 @@ export interface LintVariables {
 
 export interface RuleContext {
   variables: LintVariables
+  /** Whether the document has a component library enabled. */
+  usesLibraries: boolean
   report(issue: {
     node: LintNode
     message: string

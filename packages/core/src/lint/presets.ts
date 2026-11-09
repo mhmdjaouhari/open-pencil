@@ -29,7 +29,9 @@ export const recommended: Preset = {
     'no-groups': 'info',
     'effect-style-required': 'info',
     'no-mixed-styles': 'info',
-    'no-detached-instances': 'off'
+    'no-detached-instances': 'off',
+    // Silent unless the document has a library enabled.
+    'library-components': 'info'
   }
 }
 
@@ -56,7 +58,8 @@ export const accessibility: Preset = {
     'no-groups': 'off',
     'effect-style-required': 'off',
     'no-mixed-styles': 'off',
-    'no-detached-instances': 'off'
+    'no-detached-instances': 'off',
+    'library-components': 'off'
   }
 }
 export const presets: Record<string, Preset> = { recommended, strict, accessibility }

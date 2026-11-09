@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "Mieszane style tekstu",
   "ruleNoMixedStylesHelp": "Kilka stylów w jednej warstwie tekstu łatwo zepsuć podczas edycji.",
   "ruleNoDetachedInstances": "Wygląda jak komponent",
-  "ruleNoDetachedInstancesHelp": "Ta ramka wygląda jak element wielokrotnego użytku. Użyj instancji komponentu."
+  "ruleNoDetachedInstancesHelp": "Ta ramka wygląda jak element wielokrotnego użytku. Użyj instancji komponentu.",
+  "ruleLibraryComponents": "Komponent lokalny",
+  "ruleLibraryComponentsHelp": "Ten dokument korzysta z biblioteki komponentów. Jego własne komponenty są propozycjami, dopóki biblioteka ich nie doda."
 }

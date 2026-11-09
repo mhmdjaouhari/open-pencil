@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "Gemischte Textstile",
   "ruleNoMixedStylesHelp": "Mehrere Stile in einer Textebene gehen beim Bearbeiten leicht kaputt.",
   "ruleNoDetachedInstances": "Sieht wie eine Komponente aus",
-  "ruleNoDetachedInstancesHelp": "Dieser Rahmen sieht wie ein wiederverwendbares Element aus. Verwende eine Komponenteninstanz."
+  "ruleNoDetachedInstancesHelp": "Dieser Rahmen sieht wie ein wiederverwendbares Element aus. Verwende eine Komponenteninstanz.",
+  "ruleLibraryComponents": "Lokale Komponente",
+  "ruleLibraryComponentsHelp": "Dieses Dokument nutzt eine Komponentenbibliothek. Eigene Komponenten sind Vorschläge, bis die Bibliothek sie aufnimmt."
 }

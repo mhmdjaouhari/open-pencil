@@ -100,6 +100,8 @@ Inserting a component also brings the styles and variables it uses. They arrive 
 
 Published definitions are read-only in consuming documents. Edit the source document and publish another revision to change a definition. Instances linked to those definitions remain editable through their component properties and overrides.
 
+In a document with a library enabled, Check lists the document's own components and their instances as **Local component**: proposals for the library until it publishes them.
+
 ### Review and Accept Updates
 
 Open **Manage libraries → Updates** to discover newer revisions. Discovery does not modify the document. You can review the current and updated instance side by side, navigate between affected instances, and then update:

@@ -91,5 +91,7 @@
   "ruleNoMixedStyles": "Styles de texte mélangés",
   "ruleNoMixedStylesHelp": "Plusieurs styles dans un même calque de texte se cassent facilement à l’édition.",
   "ruleNoDetachedInstances": "Ressemble à un composant",
-  "ruleNoDetachedInstancesHelp": "Ce cadre ressemble à un élément réutilisable. Utilisez une instance de composant."
+  "ruleNoDetachedInstancesHelp": "Ce cadre ressemble à un élément réutilisable. Utilisez une instance de composant.",
+  "ruleLibraryComponents": "Composant local",
+  "ruleLibraryComponentsHelp": "Ce document utilise une bibliothèque de composants. Ses propres composants sont des propositions tant que la bibliothèque ne les a pas ajoutés."
 }
