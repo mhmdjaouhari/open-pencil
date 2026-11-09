@@ -5,7 +5,11 @@ import { CONSTRAINT_PARENT_TYPES } from '@open-pencil/scene-graph/constraints'
 import { enforcedAspectRatio } from '@open-pencil/scene-graph/layout'
 import { FITTED_CONTAINER_TYPES } from '@open-pencil/scene-graph/node-defaults'
 import type { Vector } from '@open-pencil/scene-graph/primitives'
-import { constrainedChildRect, flipChanges } from '@open-pencil/scene-graph/resize'
+import {
+  constrainedChildRect,
+  flipChanges,
+  scaledGeometryChanges
+} from '@open-pencil/scene-graph/resize'
 
 import { keepsSavedLayout, usesDetachedDerivedLayout } from './derived'
 import { laidOutFlowBox } from './flow-edges'
@@ -121,6 +125,18 @@ function constrainChildren(
       true
     )
     const resized = child.width !== size.width || child.height !== size.height
+    // Its paths scale with its box, as a resize scales them (an icon's drawing in an instance
+    // made larger): the box alone would move them apart.
+    if (resized) {
+      const geometry = scaledGeometryChanges(
+        child,
+        size.width,
+        size.height,
+        child.width,
+        child.height
+      )
+      if (Object.keys(geometry).length > 0) graph.updateNode(child.id, geometry)
+    }
     if (resized && child.layoutMode !== 'NONE') computeLayout(graph, child.id)
   }
 }
