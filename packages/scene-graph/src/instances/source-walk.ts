@@ -17,10 +17,13 @@ export function walkInstanceSources(
   const component = graph.getNode(instance.componentId)
   if (!component) return
   const walk = (sourceParent: SceneNode, instanceParent: SceneNode): void => {
+    const sources = new Set(sourceParent.childIds)
     const bySource = new Map<string, SceneNode>()
     for (const child of graph.getChildren(instanceParent.id)) {
+      // Only a copy of one of these component layers pairs. Content an instance owns in a slot,
+      // such as several instances of one component, copies none of them.
       const sourceId = copiedComponentLayerId(instance.instanceOverrides, instance.id, child)
-      if (!sourceId) continue
+      if (!sourceId || !sources.has(sourceId)) continue
       if (strict && bySource.has(sourceId))
         throw new Error(`Ambiguous component-property target ${sourceId}`)
       bySource.set(sourceId, child)
