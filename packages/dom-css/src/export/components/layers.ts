@@ -44,7 +44,12 @@ export async function layerComponents(
     const layer = graph.getNode(layerId)
     if (!layer) continue
     const name = claimName(identifierName(layer.name, 'Component'), taken)
-    const model = componentModel(graph, layer, { ...options, name })
+    // Instances standing for code components are written as them, in JSX only.
+    const model = componentModel(graph, layer, {
+      ...options,
+      name,
+      codeConnect: framework === 'react'
+    })
     if (!model) continue
     const { files } = await generate(model, { styling: options.styling })
     components.push({ name, layerId, files })

@@ -20,6 +20,8 @@ export interface MarkupUses {
   choice: ComponentModel['choice']
   /** Other generated components. */
   components: Set<string>
+  /** Code components connected instances stand for: names to import, by module. */
+  connected: Map<string, Set<string>>
   icons: boolean
   /** A layer's class as the component is styled: its CSS module class, or its utilities. */
   classOf: (className: string) => es.SyntaxNode

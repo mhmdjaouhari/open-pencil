@@ -1,7 +1,24 @@
+import { tsPlugin } from '@sveltejs/acorn-typescript'
+import { Parser } from 'acorn'
 import { print } from 'esrap'
 import tsx from 'esrap/languages/tsx'
 
-import { isNode, type SyntaxNode } from './estree'
+import { child, children, isNode, type SyntaxNode } from './estree'
+
+const TSXParser = Parser.extend(tsPlugin({ jsx: true }))
+
+/** One JSX element written as source, such as a template a document stores. */
+export function parseElement(source: string): SyntaxNode {
+  const program: unknown = TSXParser.parse(`(${source})`, {
+    ecmaVersion: 'latest',
+    sourceType: 'module'
+  })
+  const expression = isNode(program)
+    ? child(children(program, 'body').at(0), 'expression')
+    : undefined
+  if (expression?.type !== 'JSXElement') throw new Error('Expected one JSX element')
+  return expression
+}
 
 /**
  * JSX attribute strings end at `"`, decode `&` entities, and keep backslashes literally,

@@ -28,6 +28,7 @@ import {
   type ShaderLayer
 } from '../shaders'
 import { componentClasses } from '../styling'
+import { connectedElement, connectedImports } from './connect'
 import {
   ariaInvalid,
   INPUT_PROPS,
@@ -155,6 +156,7 @@ function element(node: ComponentNode, uses: MarkupUses, depth: number): es.Synta
   if (node.type === 'text') return jsx.text(node.value)
   if (node.type === 'textProp') return jsx.container(es.identifier(node.name))
   if (node.type === 'reference') return reference(node, uses, depth)
+  if (node.type === 'connected') return connectedElement(node, uses, depth, element)
   if (node.type === 'input')
     return drawing(inputElement(node.className, uses, depth), node.layerId, uses)
   if (node.type === 'icon') {
@@ -525,6 +527,7 @@ export const reactComponent: ComponentGenerator = async (component, options = {}
     kind: component.kind,
     choice: component.choice,
     components: new Set(),
+    connected: new Map(),
     layers: new WeakMap(),
     icons: false,
     shaders: new Set()
@@ -545,7 +548,8 @@ export const reactComponent: ComponentGenerator = async (component, options = {}
           $Component: es.identifier(name),
           $path: es.string(`./${name}`)
         }).body
-    )
+    ),
+    ...connectedImports(uses)
   ]
   const [, stylesImport, ...rest] = es.fill(MODULE, {
     $styles: es.string(`./${stylesPath}`),

@@ -170,6 +170,12 @@
       "import": "./dist/guides.js",
       "default": "./dist/guides.js"
     },
+    "./code-connect": {
+      "types": "./dist/code-connect/index.d.ts",
+      "bun": "./src/code-connect/index.ts",
+      "import": "./dist/code-connect/index.js",
+      "default": "./dist/code-connect/index.js"
+    },
     "./hit-test": {
       "types": "./dist/hit-test.d.ts",
       "bun": "./src/hit-test.ts",

@@ -4,7 +4,7 @@ import type { ShaderPreset } from '@open-pencil/scene-graph/shaders'
 
 import type { InputLayers } from './fields'
 import type { ComponentBinding, ComponentElement, ComponentNode } from './model'
-import type { UsedLayer } from './references'
+import { elementPath, type UsedLayer } from './references'
 import type { RepeatedPart } from './repeats'
 import { shaderLayer } from './shaders'
 
@@ -77,5 +77,14 @@ function childNode(element: StateElement, labels: TreeLabels): ComponentNode[] {
   if (labels.input?.replaced.includes(element)) return []
   const used = labels.used.get(element)
   if (!used) return [componentTree(element, labels, [])]
-  return [{ ...used, className, layerId }]
+  if (used.type !== 'connected') return [{ ...used, className, layerId }]
+  // A connected instance kept only its slot frames; each slot is the content of its frame.
+  const { slotPaths, ...connected } = used
+  const slots = slotPaths.map(({ hole, path }) => {
+    const frame = element.children.find(
+      (child): child is StateElement => child.type === 'element' && elementPath(child) === path
+    )
+    return { hole, children: frame ? componentTree(frame, labels, []).children : [] }
+  })
+  return [{ ...connected, className, layerId, slots }]
 }

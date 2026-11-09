@@ -59,7 +59,9 @@ function layerMatches(graph: SceneGraph, drawn: SceneNode, main: SceneNode): boo
   if (!bound(main, 'VISIBLE') && drawn.visible !== main.visible) return false
   if (drawn.type === 'TEXT' && !bound(main, 'TEXT') && drawn.text !== main.text) return false
   if (drawn.type === 'INSTANCE' && drawn.componentId !== main.componentId) return false
-  return same(drawn, main, DRAWN) && same(drawn, main, LAYOUT) && childrenMatch(graph, drawn, main)
+  if (!same(drawn, main, DRAWN) || !same(drawn, main, LAYOUT)) return false
+  // A slot's content is the instance's own, which the component's slot prop passes on.
+  return bound(main, 'SLOT_CONTENT') || childrenMatch(graph, drawn, main)
 }
 
 /**

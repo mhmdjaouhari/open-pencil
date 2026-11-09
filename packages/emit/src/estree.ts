@@ -165,6 +165,21 @@ export function json(value: unknown): SyntaxNode {
   return json(null)
 }
 
+/** `import { a, b } from 'source'`. */
+export function namedImport(source: string, names: readonly string[]): SyntaxNode {
+  return {
+    type: 'ImportDeclaration',
+    importKind: 'value',
+    specifiers: names.map((name) => ({
+      type: 'ImportSpecifier',
+      imported: identifier(name),
+      local: identifier(name)
+    })),
+    source: string(source),
+    attributes: []
+  }
+}
+
 /** A call of a function by name, such as a helper inside an exported prop value. */
 export const call = (callee: string, args: SyntaxNode[]): SyntaxNode => ({
   type: 'CallExpression',

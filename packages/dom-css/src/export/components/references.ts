@@ -1,5 +1,5 @@
 import { FLAGS, isFlag } from '#dom-css/behaviours/args'
-import { layerKind } from '#dom-css/behaviours/states/layers'
+import { allElements, layerKind } from '#dom-css/behaviours/states/layers'
 import type { StateElement } from '#dom-css/behaviours/states/types'
 import type { DesignStyleDeclaration } from '#dom-css/types'
 import { isEmptyObject } from 'es-toolkit/predicate'
@@ -10,6 +10,7 @@ import { findComponentPropertyTargets } from '@open-pencil/scene-graph/component
 import { isIconModified, isNamedIcon, readIcon } from '@open-pencil/scene-graph/icons'
 import { instanceMainComponent } from '@open-pencil/scene-graph/instances'
 
+import { connectedLayer, type ConnectedLayer, type ConnectedSlotPath } from './connect'
 import { drawsAsMain } from './drawn'
 import type { ComponentModel } from './model'
 
@@ -154,7 +155,21 @@ export function referenceValues(
 }
 
 /** A used layer, before the parent's class name for it is known. */
-export type UsedLayer = Omit<ComponentReference, 'className'> | Omit<IconReference, 'className'>
+export type UsedLayer =
+  | Omit<ComponentReference, 'className'>
+  | Omit<IconReference, 'className'>
+  | Omit<ConnectedLayer, 'layerId'>
+
+/** How layers are used rather than drawn. */
+export interface UseOptions {
+  /**
+   * The other components generated alongside, which instances of them use rather than
+   * drawing their layers.
+   */
+  references?: ComponentReferences
+  /** Instances of components that store a code component are written as it. */
+  codeConnect?: boolean
+}
 
 /**
  * What the layer at `element` uses in place of drawing itself, if anything, read from the first
@@ -165,7 +180,8 @@ function usedLayer(
   graph: SceneGraph,
   variantIds: readonly string[],
   element: StateElement,
-  references: ComponentReferences
+  references: ComponentReferences,
+  options: UseOptions
 ): UsedLayer | null {
   const path = element.key.split('\0')[0] ?? ''
   // The variant's layer at that path drawn as this element is: a frame, or that instance or icon.
@@ -176,8 +192,13 @@ function usedLayer(
   const main = node.type === 'INSTANCE' ? instanceMainComponent(graph, node) : undefined
   // An instance changed beyond its properties draws its own layers, which the component's
   // props could not reproduce.
-  const component =
-    main && drawsAsMain(graph, node, main) ? references.get(ownerId(graph, main)) : undefined
+  const asMain = !!main && drawsAsMain(graph, node, main)
+  const connected =
+    asMain && options.codeConnect
+      ? connectedLayer(graph, node, path, (id) => shownText(graph, node, id))
+      : null
+  if (connected) return connected
+  const component = main && asMain ? references.get(ownerId(graph, main)) : undefined
   if (component)
     return {
       type: 'reference',
@@ -188,6 +209,29 @@ function usedLayer(
   return icon && isNamedIcon(icon) && !isIconModified(graph, node)
     ? { type: 'icon', icon: icon.name }
     : null
+}
+
+/** Leaves out the size on each axis the code component sizes itself on. */
+function withoutOwnSize(element: StateElement, own: ConnectedLayer['ownSize']): void {
+  const dropped = new Set([
+    ...(own.width ? ['width', 'min-width', 'max-width'] : []),
+    ...(own.height ? ['height', 'min-height', 'max-height'] : [])
+  ])
+  const keep = (style: DesignStyleDeclaration) =>
+    Object.fromEntries(Object.entries(style).filter(([property]) => !dropped.has(property)))
+  element.base = keep(element.base)
+  element.rules = element.rules
+    .map((rule) => ({ ...rule, style: keep(rule.style) }))
+    .filter((rule) => !isEmptyObject(rule.style))
+}
+
+/** The layer path a state element draws. */
+export const elementPath = (element: StateElement) => element.key.split('\0')[0] ?? ''
+
+/** The slot frames among an element's descendants, by the paths of their layers. */
+function slotElements(root: StateElement, slots: readonly ConnectedSlotPath[]): StateElement[] {
+  const paths = new Set(slots.map((slot) => slot.path))
+  return allElements(root).filter((element) => element !== root && paths.has(elementPath(element)))
 }
 
 /**
@@ -202,22 +246,52 @@ export function referencedLayers(
   variantIds: readonly string[],
   references: ComponentReferences,
   /** Layers already used otherwise, such as a group's items. */
-  taken: ReadonlyMap<StateElement, unknown> = new Map()
+  taken: ReadonlyMap<StateElement, unknown> = new Map(),
+  options: UseOptions = {}
 ): Map<StateElement, UsedLayer> {
   const used = new Map<StateElement, UsedLayer>()
   const visit = (element: StateElement) => {
     for (const child of element.children) {
       if (child.type !== 'element' || taken.has(child)) continue
-      const layer = usedLayer(graph, variantIds, child, references)
+      const layer = usedLayer(graph, variantIds, child, references, options)
       if (!layer) {
         visit(child)
         continue
       }
       used.set(child, layer)
-      child.children = []
-      if (layer.type === 'reference') placementOnly(child)
+      // A connected instance keeps only its slot frames, whose content the caller fills in.
+      child.children = layer.type === 'connected' ? slotElements(child, layer.slotPaths) : []
+      if (layer.type === 'reference' || layer.type === 'connected') placementOnly(child)
+      if (layer.type === 'connected') {
+        withoutOwnSize(child, layer.ownSize)
+        // Slot content is the instance's own, so instances in it are used in turn.
+        for (const slot of child.children) if (slot.type === 'element') visit(slot)
+      }
     }
   }
   visit(root)
+  return used
+}
+
+/** The layers used rather than drawn: a group's items, then other components and code ones. */
+export function usedLayers(
+  graph: SceneGraph,
+  root: StateElement,
+  variantIds: readonly string[],
+  items: ReadonlyMap<StateElement, UsedLayer> | undefined,
+  options: UseOptions
+): Map<StateElement, UsedLayer> {
+  const used = new Map(items)
+  if (!options.references && !options.codeConnect) return used
+  const references = options.references ?? new Map()
+  for (const [element, layer] of referencedLayers(
+    graph,
+    root,
+    variantIds,
+    references,
+    used,
+    options
+  ))
+    used.set(element, layer)
   return used
 }

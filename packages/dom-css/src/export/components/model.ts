@@ -26,6 +26,7 @@ import { slotPropertyId } from '@open-pencil/scene-graph/slots'
 
 import type { SceneGraphToDesignOptions } from '../projection'
 import { claimName, identifierName } from '../storybook/names'
+import type { ConnectedComponent } from './connect'
 import {
   blockRoot,
   freePlacedParts,
@@ -52,11 +53,10 @@ import {
   type TextProp
 } from './properties'
 import {
-  referencedLayers,
+  usedLayers,
   type ComponentReference,
-  type ComponentReferences,
   type IconReference,
-  type UsedLayer
+  type UseOptions
 } from './references'
 import { activeTriggers, tabParts, type ChoiceModel, type RepeatedPart } from './repeats'
 import { shaderLayers, type ShaderLayer } from './shaders'
@@ -166,6 +166,7 @@ export type ComponentNode =
   | { type: 'input'; className: string; layerId?: string }
   | ComponentReference
   | IconReference
+  | ConnectedComponent
 
 /**
  * Whether a field's markup always draws its input, which then takes the caller's attributes. A
@@ -289,12 +290,8 @@ function partPaths(graph: SceneGraph, set: SceneNode, behaviour: Behaviour): Map
  * The component a set with a behaviour generates, or `null` when its kind is not generated
  * yet or its variants have no rest state to start from.
  */
-export interface ComponentModelOptions extends Pick<SceneGraphToDesignOptions, 'vectorElement'> {
-  /**
-   * The other components generated alongside, which instances of them use rather than
-   * drawing their layers.
-   */
-  references?: ComponentReferences
+export interface ComponentModelOptions
+  extends Pick<SceneGraphToDesignOptions, 'vectorElement'>, UseOptions {
   /** The component's identifier and file name; the owner's name by default. */
   name?: string
   /** A group's item component's name; the group's name with `Item` by default. */
@@ -418,21 +415,6 @@ const drawnFlags = (args: BehaviourArgs): Flags => {
   return { disabled: draws('disabled'), invalid: draws('invalid') }
 }
 
-/** The layers used rather than drawn: a group's items, then other generated components. */
-function usedLayers(
-  graph: SceneGraph,
-  root: StateElement,
-  variantIds: readonly string[],
-  items: ReadonlyMap<StateElement, UsedLayer> | undefined,
-  references: ComponentReferences | undefined
-): Map<StateElement, UsedLayer> {
-  const used = new Map(items)
-  if (references)
-    for (const [element, layer] of referencedLayers(graph, root, variantIds, references, used))
-      used.set(element, layer)
-  return used
-}
-
 /**
  * Sizes the design gives include a layer's padding and border, which a component's own
  * stylesheet has to say, since no page reset around it does. A root without a width hugs its
@@ -551,7 +533,7 @@ export function componentModel(
   const taken = new Set([...(model ? [model] : []), ...FLAGS, 'value'])
   const props = variantProps(graph, set, args, taken)
   const flags = drawnFlags(args)
-  const used = usedLayers(graph, styles.root, variantIds, items?.used, options.references)
+  const used = usedLayers(graph, styles.root, variantIds, items?.used, options)
   const elements = allElements(styles.root)
   const texts = textProps(graph, set, elements, taken, inputProperty)
   const input = inputLayers(texts.input)

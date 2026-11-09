@@ -59,6 +59,21 @@ Press <kbd>⌥</kbd><kbd>⌘</kbd><kbd>↩</kbd> (<kbd>Ctrl</kbd> + <kbd>Alt</kb
 
 Behaviours are saved in `.fig` files and published with library components.
 
+## Code Connect
+
+A main component or component set can stand for a component a codebase already has. React code export then writes its instances as that component, imported from where the codebase keeps it, instead of drawing their layers. The link is a template stored as the `codeConnect` plugin data of the component or set, so it travels with published libraries:
+
+```js
+set.setPluginData('codeConnect', JSON.stringify({
+  version: 1,
+  imports: [{ module: '@acme/ui', names: ['Button'] }],
+  template: '<Button variant={$variant} size={$size}>{$Label}</Button>',
+  defaults: { variant: 'default', size: 'default' }
+}))
+```
+
+Each `$name` hole takes the instance's value of the property with that name, spaces and other non-word characters written as `_`: a variant's value or a text property's words become the prop's string, a boolean property sets or leaves out a bare prop, and a slot's hole is filled with the slot's content, exported in turn. A prop set to its entry in `defaults` is left out. An instance changed beyond its properties, such as one with a fill of its own, is drawn as its layers.
+
 ## Component Libraries
 
 A component library publishes reusable components, shared styles, and variable collections as an immutable revision. Each published asset has stable library, asset, and revision identity, so different instances can remain on different revisions until you explicitly update them.

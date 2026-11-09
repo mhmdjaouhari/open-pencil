@@ -331,6 +331,8 @@ function templateNode(node: ComponentNode, uses: TemplateUses): vue.VueNode {
   if (node.type === 'text') return vue.text(node.value)
   if (node.type === 'textProp') return vue.interpolation(identifier(node.name))
   if (node.type === 'reference') return drawing(reference(node, uses), node.layerId, uses)
+  // Code Connect templates are JSX, so Vue components are generated without them.
+  if (node.type === 'connected') throw new Error('Connected instances are written only as JSX')
   if (node.type === 'input') return drawing(inputNode(node.className, uses), node.layerId, uses)
   if (node.type === 'icon') {
     uses.icons = true

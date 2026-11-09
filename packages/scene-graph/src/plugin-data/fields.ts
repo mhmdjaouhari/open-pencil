@@ -1,6 +1,7 @@
 import * as v from 'valibot'
 
 import { behaviourSchema } from '../behaviours/schema'
+import { codeConnectSchema } from '../code-connect/schema'
 import type { OkHCLPayload } from '../color/okhcl'
 import { commentThreadsSchema } from '../comments/schema'
 import { isExportFormatId, type ExportFormatId } from '../export-format'
@@ -220,6 +221,8 @@ export const OPEN_PENCIL_PLUGIN_DATA = {
   okhcl: jsonPluginDataField('okhcl', 'content', okhclSchema),
   /** How a main component or component set behaves as a control in preview. */
   behaviour: jsonPluginDataField('behaviour', 'content', behaviourSchema),
+  /** The code component a main component or component set stands for, which export writes. */
+  codeConnect: jsonPluginDataField('codeConnect', 'content', codeConnectSchema),
   /** The icon a frame draws, such as `lucide:home`, on the frame its paths are in. */
   icon: jsonPluginDataField('icon', 'content', iconSchema),
   /** Which of an icon path's paints its icon's color sets, on each path the source drew in it. */

@@ -10,6 +10,7 @@ export default defineConfig(
       'asset-keys': './src/asset-keys.ts',
       'behaviours/index': './src/behaviours/index.ts',
       checkpoint: './src/checkpoint.ts',
+      'code-connect/index': './src/code-connect/index.ts',
       'color/index': './src/color/index.ts',
       'comments/index': './src/comments/index.ts',
       'components/index': './src/components/index.ts',
