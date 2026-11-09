@@ -7,14 +7,37 @@ import { classValue, drawing, type MarkupUses } from './shared'
 /** Writes a node of a component's tree as JSX at a nesting depth. */
 type Markup = (node: ComponentNode, uses: MarkupUses, depth: number) => es.SyntaxNode
 
-/** A slot's hole replaced by its content's markup. */
+/**
+ * A prop a slot fills (`action={$Action}`): its one element, or a fragment of several, and no
+ * prop when the slot is empty.
+ */
+function slotAttribute(
+  attribute: es.SyntaxNode,
+  slots: ReadonlyMap<string, es.SyntaxNode[]>
+): es.SyntaxNode[] {
+  const hole = holeOf(attribute.value)
+  const content = hole === undefined ? undefined : slots.get(hole)
+  if (!content) return [attribute]
+  if (content.length === 0) return []
+  const value = content.length === 1 ? content[0] : jsx.fragment(content, 0)
+  return [{ ...attribute, value: jsx.container(value) }]
+}
+
+/** A slot's hole replaced by its content's markup, as a child or as the prop it fills. */
 function filledSlots(
   node: es.SyntaxNode,
   slots: ReadonlyMap<string, es.SyntaxNode[]>
 ): es.SyntaxNode {
   if (node.type !== 'JSXElement') return node
+  const opening = es.child(node, 'openingElement')
   return {
     ...node,
+    openingElement: opening && {
+      ...opening,
+      attributes: es
+        .children(opening, 'attributes')
+        .flatMap((attribute) => slotAttribute(attribute, slots))
+    },
     children: es.children(node, 'children').flatMap((child) => {
       const hole = holeOf(child)
       if (hole === undefined) return [filledSlots(child, slots)]

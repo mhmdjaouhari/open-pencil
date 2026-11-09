@@ -106,14 +106,18 @@ function holeValues(
   return values
 }
 
-/** An attribute set by a hole: left out for its default or `false`, bare for `true`. */
+/**
+ * An attribute set by a hole: left out for its default or `false`, bare for `true`. A slot's
+ * hole stays for the generator, which writes the slot's content as the prop (`action={…}`).
+ */
 function filledAttribute(
   attribute: es.SyntaxNode,
   values: ReadonlyMap<string, HoleValue>,
+  slots: ReadonlySet<string>,
   defaults: CodeConnect['defaults']
 ): es.SyntaxNode[] {
   const hole = holeOf(attribute.value)
-  if (!hole) return [attribute]
+  if (!hole || slots.has(hole)) return [attribute]
   const value = values.get(hole)
   if (value === undefined || value === false || value === defaults[hole]) return []
   const name = es.child(attribute, 'name')?.name
@@ -125,10 +129,11 @@ function filledAttribute(
 function filledChild(
   node: es.SyntaxNode,
   values: ReadonlyMap<string, HoleValue>,
-  slots: ReadonlySet<string>
+  slots: ReadonlySet<string>,
+  defaults: CodeConnect['defaults']
 ): es.SyntaxNode[] {
   const hole = holeOf(node)
-  if (!hole || slots.has(hole)) return [fillHoles(node, values, slots, {})]
+  if (!hole || slots.has(hole)) return [fillHoles(node, values, slots, defaults)]
   const value = values.get(hole)
   return typeof value === 'string' && value.length > 0 ? [jsx.text(value)] : []
 }
@@ -147,9 +152,11 @@ function fillHoles(
       ...opening,
       attributes: es
         .children(opening, 'attributes')
-        .flatMap((attribute) => filledAttribute(attribute, values, defaults))
+        .flatMap((attribute) => filledAttribute(attribute, values, slots, defaults))
     },
-    children: es.children(node, 'children').flatMap((child) => filledChild(child, values, slots))
+    children: es
+      .children(node, 'children')
+      .flatMap((child) => filledChild(child, values, slots, defaults))
   }
 }
 

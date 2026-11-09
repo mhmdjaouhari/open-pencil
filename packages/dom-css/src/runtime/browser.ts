@@ -44,6 +44,7 @@ const DEFAULT_COMPUTED_PROPERTIES = [
   'align-self',
   'bottom',
   'flex-direction',
+  'flex-grow',
   'flex-wrap',
   'font-family',
   'font-size',
