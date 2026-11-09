@@ -211,14 +211,25 @@ function usedLayer(
     : null
 }
 
-/** Leaves out the size on each axis the code component sizes itself on. */
+/** Positions that place nothing: the code component's own, not the parent's to set. */
+const isInFlow = (property: string, value: string) =>
+  property === 'position' && (value === 'relative' || value === 'static')
+
+/**
+ * Leaves out what the code component sets itself: the size on each axis it sizes itself on, and
+ * a position that keeps it in flow.
+ */
 function withoutOwnSize(element: StateElement, own: ConnectedLayer['ownSize']): void {
   const dropped = new Set([
     ...(own.width ? ['width', 'min-width', 'max-width'] : []),
     ...(own.height ? ['height', 'min-height', 'max-height'] : [])
   ])
   const keep = (style: DesignStyleDeclaration) =>
-    Object.fromEntries(Object.entries(style).filter(([property]) => !dropped.has(property)))
+    Object.fromEntries(
+      Object.entries(style).filter(
+        ([property, value]) => !dropped.has(property) && !isInFlow(property, value)
+      )
+    )
   element.base = keep(element.base)
   element.rules = element.rules
     .map((rule) => ({ ...rule, style: keep(rule.style) }))

@@ -23,12 +23,42 @@ function filledSlots(
   }
 }
 
-function withAttribute(node: es.SyntaxNode, attribute: es.SyntaxNode): es.SyntaxNode {
+const JOINED_CLASSES = es.parseExpression("[$own, $placed].join(' ')")
+
+/** The template's own `className` value as an expression: a string, or what its braces hold. */
+function classExpression(value: es.SyntaxNode | undefined): es.SyntaxNode | undefined {
+  if (value?.type === 'Literal') return value
+  return value?.type === 'JSXExpressionContainer' ? es.child(value, 'expression') : undefined
+}
+
+/** Two class values as one: a string when both are, an expression joining them otherwise. */
+function joinedClasses(own: es.SyntaxNode, placed: es.SyntaxNode): es.SyntaxNode {
+  if (own.type === 'Literal' && placed.type === 'Literal')
+    return es.string(`${String(own.value)} ${String(placed.value)}`)
+  return es.fill(JOINED_CLASSES, { $own: own, $placed: placed })
+}
+
+/**
+ * The parent's placement as the element's `className`, joined to the class the template
+ * already gives it (a placeholder's size), since an element takes one `className`.
+ */
+function withPlacement(node: es.SyntaxNode, placed: es.SyntaxNode): es.SyntaxNode {
   const opening = es.child(node, 'openingElement')
   if (!opening) return node
+  const attributes = es.children(opening, 'attributes')
+  const isClassName = (attribute: es.SyntaxNode) =>
+    es.child(attribute, 'name')?.name === 'className'
+  const own = classExpression(es.child(attributes.find(isClassName), 'value'))
+  const value = own ? joinedClasses(own, placed) : placed
   return {
     ...node,
-    openingElement: { ...opening, attributes: [...es.children(opening, 'attributes'), attribute] }
+    openingElement: {
+      ...opening,
+      attributes: [
+        ...attributes.filter((attribute) => !isClassName(attribute)),
+        jsx.attribute('className', classValue(value))
+      ]
+    }
   }
 }
 
@@ -56,9 +86,7 @@ export function connectedElement(
   const filled = indentElement(filledSlots(node.element, slots), depth)
   const placement = uses.classOf(node.className)
   const placed =
-    placement.type === 'Literal' && !placement.value
-      ? filled
-      : withAttribute(filled, jsx.attribute('className', classValue(placement)))
+    placement.type === 'Literal' && !placement.value ? filled : withPlacement(filled, placement)
   return drawing(placed, node.layerId, uses)
 }
 

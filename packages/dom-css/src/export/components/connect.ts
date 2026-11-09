@@ -40,6 +40,8 @@ function ownsSize(
   main: SceneNode,
   axis: LayoutSizingAxis
 ): boolean {
+  // A component of no layers (a placeholder, a rule) has no size but the one the design gives.
+  if (main.childIds.length === 0) return false
   const sizing = layoutSizing(graph, instance, axis)
   if (sizing === 'HUG') return true
   const field = axis === 'HORIZONTAL' ? 'width' : 'height'
@@ -71,6 +73,13 @@ function codeConnectOf(graph: SceneGraph, main: SceneNode): CodeConnect | undefi
 
 type HoleValue = string | boolean
 
+/** A `true`/`false` variant is a boolean prop, as a Figma boolean variant maps to one. */
+function variantValue(value: string): HoleValue {
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return value
+}
+
 /** What the instance shows for each of its owner's properties, by hole name. */
 function holeValues(
   graph: SceneGraph,
@@ -81,7 +90,7 @@ function holeValues(
   const owner = behaviourOwner(graph, main) ?? main
   const values = new Map<string, HoleValue>()
   for (const [axis, value] of Object.entries(main.componentPropertyValues))
-    values.set(holeName(axis), value)
+    values.set(holeName(axis), variantValue(value))
   for (const definition of owner.componentPropertyDefinitions) {
     if (definition.type === 'TEXT') {
       const text = shownText(definition.id)
