@@ -363,7 +363,11 @@ function openPencilPaint(paint: Fill, type: OpenPencilPaint['type']): OpenPencil
 }
 
 /** `paint` as Figma's plugin API reads it, its colour bound to `variableId` when given. */
-export function toFigmaPaint(paint: Fill, variableId?: string): FigmaPaint {
+export function toFigmaPaint(
+  paint: Fill,
+  variableId?: string,
+  stopVariableIds?: ReadonlyMap<number, string>
+): FigmaPaint {
   const base: ReadBase = {
     visible: paint.visible,
     opacity: paint.opacity,
@@ -385,10 +389,14 @@ export function toFigmaPaint(paint: Fill, variableId?: string): FigmaPaint {
   return {
     type,
     ...base,
-    gradientStops: (paint.gradientStops ?? []).map(({ position, color }) => ({
-      position,
-      color: { ...color }
-    })),
+    gradientStops: (paint.gradientStops ?? []).map(({ position, color }, stop) => {
+      const stopVariableId = stopVariableIds?.get(stop)
+      return {
+        position,
+        color: { ...color },
+        ...(stopVariableId && { boundVariables: { color: variableAlias(stopVariableId) } })
+      }
+    }),
     gradientTransform: rows(paint.gradientTransform)
   }
 }

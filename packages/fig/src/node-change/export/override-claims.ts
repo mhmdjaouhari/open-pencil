@@ -14,7 +14,7 @@ import {
 import type { GUID, Vector } from '@open-pencil/scene-graph/primitives'
 import { scaleNodeChanges } from '@open-pencil/scene-graph/scaling'
 import { ownsSlotContent } from '@open-pencil/scene-graph/slots'
-import { paintBindingTarget } from '@open-pencil/scene-graph/variables'
+import { paintColorBindingOwner } from '@open-pencil/scene-graph/variables'
 
 import { instanceExportAddress } from '../instance/geometry'
 import { mergeVariableConsumptionMaps, overrideVariableBindingEntry } from '../variable/bindings'
@@ -201,7 +201,7 @@ function paintBindingOverride(
   target: SceneNode,
   bindingField: string
 ): Partial<Pick<KiwiSymbolOverridePayload, 'fillPaints' | 'strokePaints'>> | undefined {
-  const paint = paintBindingTarget(bindingField)
+  const paint = paintColorBindingOwner(bindingField)
   if (paint?.list === 'fills') return { fillPaints: createFillPaints(context, target) }
   if (paint?.list === 'strokes') return { strokePaints: createStrokePaints(context, target) }
   return undefined

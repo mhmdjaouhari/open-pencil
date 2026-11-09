@@ -3,7 +3,12 @@ import type { SceneGraph } from '../graph'
 import { hasInstanceOverride } from '../instances/overrides'
 import type { Color } from '../primitives'
 import type { Fill, SceneNode, Stroke } from '../types'
-import { paintBindingTarget, type PaintBindingList } from './fields'
+import {
+  gradientStopBindingTarget,
+  paintBindingTarget,
+  paintColorBindingOwner,
+  type PaintBindingList
+} from './fields'
 import { collectionsResolving, getNodeVariableModeId } from './resolution'
 import { subtreeNodes } from './subtree'
 
@@ -24,26 +29,52 @@ const appliedColors = new WeakMap<SceneNode, Map<string, AppliedColor>>()
 
 const PAINT_LISTS = ['fills', 'strokes'] as const
 
+/**
+ * A binding of a paint's color, or of one gradient stop's color when `stop` is set. A paint's
+ * color carries the variable's alpha as the paint's opacity; a stop's color carries its own alpha
+ * and leaves the paint's opacity alone.
+ */
 interface BoundPaint {
   readonly field: string
   readonly list: PaintBindingList
   readonly index: number
+  readonly stop: number | null
   readonly variableId: string
 }
 
-/** The paints of `node` whose color is bound to a variable, each with a paint there to color. */
+/** The paint, or gradient stop of a paint, a binding field colors, or null for any other field. */
+function boundPaintTarget(
+  field: string
+): { list: PaintBindingList; index: number; stop: number | null } | null {
+  const stop = gradientStopBindingTarget(field)
+  if (stop) return stop
+  const paint = paintBindingTarget(field)
+  return paint ? { ...paint, stop: null } : null
+}
+
+/** Whether `paint` has what `bound` colors: the paint itself, or its gradient stop. */
+function hasTarget(paint: Fill | undefined, bound: { stop: number | null }): paint is Fill {
+  if (!paint) return false
+  return bound.stop === null || paint.gradientStops?.at(bound.stop) !== undefined
+}
+
+/**
+ * The paints and gradient stops of `node` whose color is bound to a variable, each with a paint
+ * or stop there to color.
+ */
 function boundPaints(node: SceneNode): BoundPaint[] {
   const paints: BoundPaint[] = []
   for (const [field, variableId] of Object.entries(node.boundVariables)) {
-    const target = paintBindingTarget(field)
-    if (target && node[target.list].at(target.index)) paints.push({ field, ...target, variableId })
+    const target = boundPaintTarget(field)
+    if (target && hasTarget(node[target.list].at(target.index), target))
+      paints.push({ field, ...target, variableId })
   }
   return paints
 }
 
-/** Whether a layer has a paint whose color is bound to a variable. */
+/** Whether a layer has a paint, or a gradient stop, whose color is bound to a variable. */
 export function hasBoundPaints(node: SceneNode): boolean {
-  for (const field in node.boundVariables) if (paintBindingTarget(field)) return true
+  for (const field in node.boundVariables) if (paintColorBindingOwner(field)) return true
   return false
 }
 
@@ -64,9 +95,15 @@ function sameColor(a: Color, b: Color): boolean {
   )
 }
 
+/** The color a binding's target shows: a paint's color with its opacity, or a stop's color. */
+function targetColor(bound: { stop: number | null }, paint: Fill): Color {
+  const stop = bound.stop === null ? undefined : paint.gradientStops?.at(bound.stop)
+  return stop ? { ...stop.color } : paintColor(paint)
+}
+
 function lastApplied(node: SceneNode, bound: BoundPaint, paint: Fill): Color {
   const entry = appliedColors.get(node)?.get(bound.field)
-  return entry?.variableId === bound.variableId ? entry.color : paintColor(paint)
+  return entry?.variableId === bound.variableId ? entry.color : targetColor(bound, paint)
 }
 
 /**
@@ -87,15 +124,37 @@ function recordApplied(node: SceneNode, bound: BoundPaint, color: Color): void {
   entries.set(bound.field, { variableId: bound.variableId, color: { ...color } })
 }
 
-/** The variable's RGB at full alpha in the paint, and its alpha as the paint's opacity. */
-function applyColor(paint: Fill, color: Color): void {
-  paint.color = { ...color, a: 1 }
-  paint.opacity = color.a
+/**
+ * Writes the variable's color into what the binding colors: into a paint, its RGB at full alpha
+ * and its alpha as the paint's opacity; into a gradient stop, the color with its alpha as the
+ * stop's own. `paint` is a copy this may write into.
+ */
+function applyColor(paint: Fill, bound: { stop: number | null }, color: Color): void {
+  if (bound.stop === null) {
+    paint.color = { ...color, a: 1 }
+    paint.opacity = color.a
+    return
+  }
+  const stop = paint.gradientStops?.at(bound.stop)
+  if (stop) stop.color = { ...color }
 }
 
-/** Whether `paint` already shows `color` as a bound paint stores it. */
-function showsColor(paint: Fill, color: Color): boolean {
+/** Whether `paint` already shows `color` as a bound paint, or bound stop, stores it. */
+function showsColor(paint: Fill, bound: BoundPaint, color: Color): boolean {
+  if (bound.stop !== null) return sameColor(targetColor(bound, paint), color)
   return sameColor(paintColor(paint), color) && paint.color.a === 1
+}
+
+/** Copies what a binding colors in `own` into `paint`, the paint a sync writes in its place. */
+function keepColor(paint: Fill, own: Fill, bound: { stop: number | null }): void {
+  if (bound.stop === null) {
+    paint.color = { ...own.color }
+    paint.opacity = own.opacity
+    return
+  }
+  const ownStop = own.gradientStops?.at(bound.stop)
+  const stop = paint.gradientStops?.at(bound.stop)
+  if (ownStop && stop) stop.color = { ...ownStop.color }
 }
 
 type PaintLists = Pick<Partial<SceneNode>, 'fills' | 'strokes'>
@@ -145,13 +204,14 @@ function refresh(graph: SceneGraph, node: SceneNode, forced: (field: string) => 
     if (!color || !paint) continue
     const last = lastApplied(node, bound, paint)
     recordApplied(node, bound, color)
-    if ((!forced(bound.field) && sameColor(last, color)) || showsColor(paint, color)) continue
+    if ((!forced(bound.field) && sameColor(last, color)) || showsColor(paint, bound, color))
+      continue
     if (bound.list === 'fills') {
       fills ??= copyFills(node.fills)
-      applyColor(fills[bound.index], color)
+      applyColor(fills[bound.index], bound, color)
     } else {
       strokes ??= copyStrokes(node.strokes)
-      applyColor(strokes[bound.index], color)
+      applyColor(strokes[bound.index], bound, color)
     }
   }
   const changes: PaintLists = {}
@@ -164,17 +224,20 @@ const NONE_FORCED = (): boolean => false
 const ALL_FORCED = (): boolean => true
 
 /**
- * Refreshes a layer's bound paints: each takes its variable's color for the layer, alpha as
- * opacity, once that color differs from the one last applied, discarding edits made since, as
+ * Refreshes a layer's bound paints and gradient stops: each takes its variable's color for the
+ * layer, alpha as a paint's opacity or a stop's own alpha, once that color differs from the one last applied, discarding edits made since, as
  * Figma refreshes them when a variable's value or a layer's mode changes.
  */
 export function refreshBoundPaints(graph: SceneGraph, node: SceneNode): void {
   if (hasBoundPaints(node)) refresh(graph, node, NONE_FORCED)
 }
 
-/** Gives one bound paint its variable's color for the layer, as binding it does in Figma. */
+/**
+ * Gives one bound paint, or bound gradient stop, its variable's color for the layer, as binding
+ * it does in Figma.
+ */
 export function applyBoundPaintColor(graph: SceneGraph, node: SceneNode, field: string): void {
-  if (paintBindingTarget(field)) refresh(graph, node, (bound) => bound === field)
+  if (paintColorBindingOwner(field)) refresh(graph, node, (bound) => bound === field)
 }
 
 /**
@@ -246,15 +309,29 @@ export function refreshMovedBoundPaints(
   }
 }
 
+/** The bindings in `bindings` of the colors of paints, and their gradient stops, in `list`. */
+function listBindings(
+  bindings: Readonly<Record<string, string>>,
+  list: PaintBindingList
+): BoundPaint[] {
+  const bound: BoundPaint[] = []
+  for (const [field, variableId] of Object.entries(bindings)) {
+    const target = boundPaintTarget(field)
+    if (target?.list === list) bound.push({ field, ...target, variableId })
+  }
+  return bound
+}
+
 function reboundPaint(
   target: SceneNode,
   bindings: Readonly<Record<string, string>>,
   list: PaintBindingList
 ): boolean {
-  return target[list].some((_, index) => {
-    const field = `${list}/${index}/color`
-    return field in bindings && bindings[field] !== target.boundVariables[field]
-  })
+  return listBindings(bindings, list).some(
+    (bound) =>
+      hasTarget(target[list].at(bound.index), bound) &&
+      bound.variableId !== target.boundVariables[bound.field]
+  )
 }
 
 /**
@@ -276,21 +353,19 @@ export function keepCopyBoundPaints(
       Object.assign(updates, {
         [list]: list === 'fills' ? copyFills(target.fills) : copyStrokes(target.strokes)
       })
-    updates[list]?.forEach((paint, index) => {
-      const field = `${list}/${index}/color`
-      const variableId = bindings[field]
-      if (!variableId) return
-      const bound = { field, list, index, variableId }
-      const own = target[list].at(index)
-      const keeps = own !== undefined && target.boundVariables[field] === variableId
-      if (keeps) {
-        paint.color = { ...own.color }
-        paint.opacity = own.opacity
-      }
-      const color = graph.resolveColorVariableForNode(target.id, variableId)
-      if (!color) return
-      if (!keeps || !sameColor(lastApplied(target, bound, own), color)) applyColor(paint, color)
+    const paints = updates[list]
+    if (!paints) continue
+    for (const bound of listBindings(bindings, list)) {
+      const paint = paints.at(bound.index)
+      if (!hasTarget(paint, bound)) continue
+      const own = target[list].at(bound.index)
+      const keeps = hasTarget(own, bound) && target.boundVariables[bound.field] === bound.variableId
+      if (keeps) keepColor(paint, own, bound)
+      const color = graph.resolveColorVariableForNode(target.id, bound.variableId)
+      if (!color) continue
+      if (!keeps || !sameColor(lastApplied(target, bound, own), color))
+        applyColor(paint, bound, color)
       recordApplied(target, bound, color)
-    })
+    }
   }
 }

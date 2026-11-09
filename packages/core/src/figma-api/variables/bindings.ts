@@ -15,8 +15,11 @@ import {
   effectBindingField,
   effectBindingTarget,
   effectBindingVariableType,
+  gradientStopBindingField,
+  gradientStopBindingTarget,
   independentCornerChanges,
-  paintBindingTarget
+  paintBindingTarget,
+  paintColorBindingOwner
 } from '@open-pencil/scene-graph/variables'
 
 import type { FigmaEffect, FigmaEffectBindings } from '#core/figma-api/effects'
@@ -222,9 +225,47 @@ export function paintBindings(node: SceneNode, key: 'fills' | 'strokes'): Map<nu
   return bindings
 }
 
+/** The variable bound to each gradient stop's colour, by paint index and then stop index. */
+export function gradientStopBindings(
+  node: SceneNode,
+  key: 'fills' | 'strokes'
+): Map<number, Map<number, string>> {
+  const bindings = new Map<number, Map<number, string>>()
+  for (const [field, id] of Object.entries(node.boundVariables)) {
+    const target = gradientStopBindingTarget(field)
+    if (target?.list !== key) continue
+    const stops = bindings.get(target.index) ?? new Map<number, string>()
+    stops.set(target.stop, id)
+    bindings.set(target.index, stops)
+  }
+  return bindings
+}
+
+/** The colour bindings `paints` carry, each paint's and each gradient stop's, by binding field. */
+function wantedPaintBindings(
+  graph: SceneGraph,
+  key: 'fills' | 'strokes',
+  paints: readonly FigmaPaint[]
+): Map<string, string> {
+  const wanted = new Map<string, string>()
+  const want = (field: string, id: string | undefined) => {
+    if (id && graph.variables.get(id)?.type === 'COLOR') wanted.set(field, id)
+  }
+  paints.forEach((paint, index) => {
+    if ('boundVariables' in paint) want(`${key}/${index}/color`, paint.boundVariables?.color?.id)
+    if ('gradientStops' in paint && paint.gradientStops)
+      paint.gradientStops.forEach((stop, position) => {
+        if ('boundVariables' in stop)
+          want(gradientStopBindingField(key, index, position), stop.boundVariables?.color?.id)
+      })
+  })
+  return wanted
+}
+
 /**
- * Binds each paint's colour to the variable its `boundVariables.color` names, as Figma does when
- * paints are set, and drops bindings of paints that no longer carry one.
+ * Binds each paint's colour, and each gradient stop's, to the variable its `boundVariables.color`
+ * names, as Figma does when paints are set, and drops bindings of paints and stops that no longer
+ * carry one.
  */
 export function setPaintBindings(
   graph: SceneGraph,
@@ -232,17 +273,17 @@ export function setPaintBindings(
   key: 'fills' | 'strokes',
   paints: readonly FigmaPaint[]
 ): void {
-  const current = paintBindings(node, key)
-  const wanted = new Map<number, string>()
-  paints.forEach((paint, index) => {
-    const id = 'boundVariables' in paint ? paint.boundVariables?.color?.id : undefined
-    if (id && graph.variables.get(id)?.type === 'COLOR') wanted.set(index, id)
-  })
-  for (const index of current.keys()) {
-    if (!wanted.has(index)) graph.unbindVariable(node.id, `${key}/${index}/color`)
+  const current = new Map(
+    Object.entries(node.boundVariables).filter(
+      ([field]) => paintColorBindingOwner(field)?.list === key
+    )
+  )
+  const wanted = wantedPaintBindings(graph, key, paints)
+  for (const field of current.keys()) {
+    if (!wanted.has(field)) graph.unbindVariable(node.id, field)
   }
-  for (const [index, id] of wanted) {
-    if (current.get(index) !== id) graph.bindVariable(node.id, `${key}/${index}/color`, id)
+  for (const [field, id] of wanted) {
+    if (current.get(field) !== id) graph.bindVariable(node.id, field, id)
   }
   if (current.size > 0 || wanted.size > 0) reconcileVariableLayouts(graph, { subtrees: [node.id] })
 }

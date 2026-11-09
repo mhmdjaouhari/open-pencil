@@ -147,6 +147,14 @@ export interface Paint {
   noiseSize?: Vector
   customEffectId?: { guid?: GUID }
   colorVar?: VariableDataEntry
+  /** A gradient's stops with the variable each stop's colour is bound to, beside `stops`. */
+  stopsVar?: ColorStopVar[]
+}
+
+export interface ColorStopVar {
+  color?: Color
+  colorVar?: VariableDataEntry
+  position?: number
 }
 
 export interface Effect {

@@ -204,7 +204,7 @@ function copyOpt<T, U>(arr: T[] | undefined, fn: (arr: T[]) => U[]): U[] | undef
   return arr.length > 0 ? fn(arr) : []
 }
 
-function copyGradientStop(gs: GradientStop): GradientStop {
+export function copyGradientStop(gs: GradientStop): GradientStop {
   return { color: { ...gs.color }, position: gs.position }
 }
 

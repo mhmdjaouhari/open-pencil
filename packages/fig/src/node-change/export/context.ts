@@ -9,6 +9,7 @@ import type {
 import { isUnsetGuid, stringToGuid, UNSET_GUID } from '@open-pencil/kiwi/fig/guid'
 import type {
   ComponentPropertyDefinition,
+  Fill,
   GlassEffectParams,
   PluginDataEntry,
   SceneGraph,
@@ -17,7 +18,12 @@ import type {
 import { UNSET_GLASS } from '@open-pencil/scene-graph/constants'
 import type { Color, GUID, Matrix } from '@open-pencil/scene-graph/primitives'
 import { sharedStyleLayers } from '@open-pencil/scene-graph/shared-styles'
-import { EFFECT_BINDING_PROPERTIES, effectBindingField } from '@open-pencil/scene-graph/variables'
+import {
+  EFFECT_BINDING_PROPERTIES,
+  effectBindingField,
+  gradientStopBindingField,
+  type PaintBindingList
+} from '@open-pencil/scene-graph/variables'
 
 import { variableAlias } from '../variable/bindings'
 import { EFFECT_VARIABLE_FIELDS, kiwiEffectWithBindings } from '../variable/effects'
@@ -283,22 +289,97 @@ export function applyColorVariableBinding(
   }
 }
 
+/**
+ * `paint` with its gradient stops' colour variable aliases. Figma keeps them in `stopsVar`, one
+ * entry per stop beside `stops`, with the stop's colour and position and, for a bound stop, its
+ * alias as `colorVar`. A paint with no bound stop writes none, so an imported `stopsVar` the node
+ * no longer binds is cleared as an unbound `colorVar` is.
+ */
+export function applyGradientStopBindings(
+  context: SceneNodeToKiwiContext,
+  node: SceneNode,
+  paint: Paint,
+  list: PaintBindingList,
+  index: number
+): Paint {
+  const stops = paint.stops ?? []
+  const variableIds = stops.map(
+    (_, stop) => node.boundVariables[gradientStopBindingField(list, index, stop)]
+  )
+  if (!variableIds.some(Boolean)) {
+    if (!paint.stopsVar) return paint
+    const { stopsVar: _cleared, ...unbound } = paint
+    return unbound
+  }
+  return {
+    ...paint,
+    stopsVar: stops.map((stop, position) => {
+      const variableId = variableIds[position]
+      return {
+        color: { ...stop.color },
+        position: stop.position,
+        ...(variableId
+          ? {
+              colorVar: {
+                dataType: 'ALIAS',
+                resolvedDataType: 'COLOR',
+                value: { alias: variableAlias(context.graph, variableId, context.varIdToGuid) }
+              }
+            }
+          : {})
+      }
+    })
+  }
+}
+
+/**
+ * An imported paint whose gradient stops bind variables takes its stops from the scene, where
+ * bindings write the colours their variables give the layer now, rather than the stale ones the
+ * archive saved. `own` is the scene's paint in the same place.
+ */
+export function boundStopsFromScene(
+  context: SceneNodeToKiwiContext,
+  node: SceneNode,
+  paint: Paint,
+  own: Fill | undefined,
+  list: PaintBindingList,
+  index: number
+): Paint {
+  const stops = own?.gradientStops
+  if (!stops) return paint
+  const bound = stops.some(
+    (_, stop) => gradientStopBindingField(list, index, stop) in node.boundVariables
+  )
+  if (!bound) return paint
+  return {
+    ...paint,
+    stops: stops.map((stop) => ({ color: context.safeColor(stop.color), position: stop.position }))
+  }
+}
+
+/** `paint`, the `index`th of the node's `list`, with its colour and gradient stop aliases. */
+export function bindKiwiPaint(
+  context: SceneNodeToKiwiContext,
+  node: SceneNode,
+  paint: Paint,
+  list: PaintBindingList,
+  index: number
+): Paint {
+  const bound = applyColorVariableBinding(context, node, paint, `${list}/${index}/color`)
+  return applyGradientStopBindings(context, node, bound, list, index)
+}
+
 /** A node's fills with their colour variable aliases, for the record and for override claims alike. */
 export function createFillPaints(context: SceneNodeToKiwiContext, node: SceneNode): Paint[] {
   return node.fills.map((fill, index) =>
-    applyColorVariableBinding(context, node, context.fillToKiwiPaint(fill), `fills/${index}/color`)
+    bindKiwiPaint(context, node, context.fillToKiwiPaint(fill), 'fills', index)
   )
 }
 
 /** A stroke is a paint, so it writes the same way a fill does, gradients and images included. */
 export function createStrokePaints(context: SceneNodeToKiwiContext, node: SceneNode): Paint[] {
   return node.strokes.map((stroke, index) =>
-    applyColorVariableBinding(
-      context,
-      node,
-      context.fillToKiwiPaint(stroke),
-      `strokes/${index}/color`
-    )
+    bindKiwiPaint(context, node, context.fillToKiwiPaint(stroke), 'strokes', index)
   )
 }
 

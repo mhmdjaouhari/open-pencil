@@ -2,7 +2,7 @@ import type { SceneGraph, SceneNode } from '@open-pencil/scene-graph'
 import {
   applyBoundPaintColor,
   copiesComponentPaints,
-  paintBindingTarget,
+  paintColorBindingOwner,
   recordWrittenBoundPaints
 } from '@open-pencil/scene-graph/variables'
 
@@ -20,7 +20,7 @@ export function applyDocumentPaintBindings(
   for (const node of materialized) {
     recordWrittenBoundPaints(graph, node, { fills: node.fills, strokes: node.strokes })
     for (const field of Object.keys(node.boundVariables)) {
-      const target = paintBindingTarget(field)
+      const target = paintColorBindingOwner(field)
       if (target && copiesComponentPaints(graph, node, target.list))
         applyBoundPaintColor(graph, node, field)
     }

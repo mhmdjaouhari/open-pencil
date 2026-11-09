@@ -23,9 +23,13 @@ export {
   effectBindingField,
   effectBindingTarget,
   effectBindingVariableType,
+  gradientStopBindingField,
+  gradientStopBindingTarget,
   isNumericVariableBindingField,
   paintBindingTarget,
+  paintColorBindingOwner,
   type EffectBindingProperty,
+  type GradientStopBindingTarget,
   TEXT_CONTENT_VARIABLE_TYPES,
   VISIBILITY_VARIABLE_TYPES,
   type PaintBindingList

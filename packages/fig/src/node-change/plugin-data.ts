@@ -1,7 +1,7 @@
 import { omit } from 'es-toolkit/object'
 import * as v from 'valibot'
 
-import type { NodeChange, PluginData, PluginRelaunchData } from '@open-pencil/kiwi/fig/codec'
+import type { NodeChange, Paint, PluginData, PluginRelaunchData } from '@open-pencil/kiwi/fig/codec'
 import { guidToString } from '@open-pencil/kiwi/fig/guid'
 import type {
   ExportSetting,
@@ -19,7 +19,12 @@ import {
   type PluginDataField
 } from '@open-pencil/scene-graph/plugin-data'
 import type { Rect } from '@open-pencil/scene-graph/primitives'
-import { effectBindingTarget, paintBindingTarget } from '@open-pencil/scene-graph/variables'
+import {
+  effectBindingTarget,
+  gradientStopBindingField,
+  paintColorBindingOwner,
+  type PaintBindingList
+} from '@open-pencil/scene-graph/variables'
 
 import { readEffectiveFigmaRawField } from '../source-metadata'
 import {
@@ -93,13 +98,34 @@ export function extractTextPathBox(nc: NodeChange): Rect | null {
   return readNodeChangePluginData(nc, textPathBox) ?? null
 }
 
+/**
+ * The bindings `paints` carry: each paint's colour alias, and each gradient stop's alias in
+ * `stopsVar`, keyed as `fills/0/color` and `fills/0/gradientStops/1/color`.
+ */
+function paintBindingsFromKiwi(
+  paints: readonly Paint[] | undefined,
+  list: PaintBindingList
+): Record<string, string> {
+  const bindings: Record<string, string> = {}
+  paints?.forEach((paint, index) => {
+    const variableGuid = paint.colorVar?.value?.alias?.guid
+    if (variableGuid) bindings[`${list}/${index}/color`] = guidToString(variableGuid)
+    paint.stopsVar?.forEach((stop, position) => {
+      const stopGuid = stop.colorVar?.value?.alias?.guid
+      if (stopGuid)
+        bindings[gradientStopBindingField(list, index, position)] = guidToString(stopGuid)
+    })
+  })
+  return bindings
+}
+
 export function extractBoundVariables(nc: NodeChange): Record<string, string> {
   let bindings = readNodeChangePluginData(nc, boundVariables) ?? {}
   // Each paint and effect carries its own aliases. An instance's copy pairs its component's plugin
   // data with paints or effects an override set, so the plugin data can name a binding they dropped.
   const decidedByPaints = (field: string) => {
     if (effectBindingTarget(field)) return nc.effects !== undefined
-    const list = paintBindingTarget(field)?.list
+    const list = paintColorBindingOwner(field)?.list
     return list === 'fills'
       ? nc.fillPaints !== undefined
       : list === 'strokes' && nc.strokePaints !== undefined
@@ -115,14 +141,8 @@ export function extractBoundVariables(nc: NodeChange): Record<string, string> {
       if (field) bindings = omit(bindings, [field])
     }
   }
-  nc.fillPaints?.forEach((paint, i) => {
-    const variableGuid = paint.colorVar?.value?.alias?.guid
-    if (variableGuid) bindings[`fills/${i}/color`] = guidToString(variableGuid)
-  })
-  nc.strokePaints?.forEach((paint, i) => {
-    const variableGuid = paint.colorVar?.value?.alias?.guid
-    if (variableGuid) bindings[`strokes/${i}/color`] = guidToString(variableGuid)
-  })
+  Object.assign(bindings, paintBindingsFromKiwi(nc.fillPaints, 'fills'))
+  Object.assign(bindings, paintBindingsFromKiwi(nc.strokePaints, 'strokes'))
   if (nc.effects) Object.assign(bindings, effectBindingsFromKiwi(nc.effects))
   return bindings
 }

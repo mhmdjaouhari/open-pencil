@@ -80,6 +80,52 @@ export function paintBindingTarget(
   return { list: match[1] === 'fills' ? 'fills' : 'strokes', index: Number(match[2]) }
 }
 
+/** One gradient stop of a paint, by paint list, paint index, and stop index. */
+export interface GradientStopBindingTarget {
+  list: PaintBindingList
+  index: number
+  stop: number
+}
+
+const GRADIENT_STOP_BINDING_FIELD = /^(fills|strokes)\/(\d+)\/gradientStops\/(\d+)\/color$/
+
+/** The node binding field for one gradient stop's colour, such as `fills/0/gradientStops/1/color`. */
+export function gradientStopBindingField(
+  list: PaintBindingList,
+  index: number,
+  stop: number
+): string {
+  return `${list}/${index}/gradientStops/${stop}/color`
+}
+
+/**
+ * The gradient stop a binding field names the colour of, such as the second stop of the first
+ * fill for `fills/0/gradientStops/1/color`, or null for a field that binds anything else. A stop's
+ * colour binds to a COLOR variable as Figma's `ColorStop.boundVariables.color` does.
+ */
+export function gradientStopBindingTarget(field: string): GradientStopBindingTarget | null {
+  if (!field.endsWith('/color')) return null
+  const match = GRADIENT_STOP_BINDING_FIELD.exec(field)
+  if (!match) return null
+  return {
+    list: match[1] === 'fills' ? 'fills' : 'strokes',
+    index: Number(match[2]),
+    stop: Number(match[3])
+  }
+}
+
+/**
+ * The paint a colour binding field belongs to, whether it binds the whole paint's colour or one
+ * of its gradient stops, or null for a field that binds anything else.
+ */
+export function paintColorBindingOwner(
+  field: string
+): { list: PaintBindingList; index: number } | null {
+  const stop = gradientStopBindingTarget(field)
+  if (stop) return { list: stop.list, index: stop.index }
+  return paintBindingTarget(field)
+}
+
 /** The effect fields that bind to variables, in the order Figma's messages list them. */
 export const EFFECT_BINDING_PROPERTIES = [
   'color',

@@ -2,9 +2,10 @@ import { symbolOverridesOf, type SymbolOverride } from '#fig/instance-overrides/
 import { variableConsumptionEntries } from '#fig/node-change/variable/bindings'
 import { effectVariableAliases } from '#fig/node-change/variable/effects'
 import { visitVariableReferences } from '#fig/node-change/variable/expression'
+import { compact } from 'es-toolkit/array'
 
 import type { GUID } from '@open-pencil/kiwi/fig'
-import type { NodeChange } from '@open-pencil/kiwi/fig/codec'
+import type { NodeChange, Paint } from '@open-pencil/kiwi/fig/codec'
 import { guidToString, stringToGuid } from '@open-pencil/kiwi/fig/guid'
 
 import { normalizeComponentPropertyRecords } from '../property-records'
@@ -33,6 +34,18 @@ function visitChildren(
 
 type Report = (diagnostic: BindingReferenceDiagnostic) => void
 
+type VariableAlias = NonNullable<NonNullable<NonNullable<Paint['colorVar']>['value']>['alias']>
+
+/** The variable aliases `paints` carry: each paint's colour and each gradient stop's. */
+function paintVariableAliases(paints: readonly Paint[] | undefined): VariableAlias[] {
+  return (paints ?? []).flatMap((paint) =>
+    compact([
+      paint.colorVar?.value?.alias,
+      ...(paint.stopsVar ?? []).map((stop) => stop.colorVar?.value?.alias)
+    ])
+  )
+}
+
 /** Resolves a record's binding references in place, reporting the ones that name nothing. */
 function createRecordNormalizer(resolve: ReturnType<typeof createResourceResolver>) {
   return (record: NodeChange, sourceId: string, report?: Report): void => {
@@ -60,7 +73,7 @@ function createRecordNormalizer(resolve: ReturnType<typeof createResourceResolve
         ['fillPaints', node.fillPaints],
         ['strokePaints', node.strokePaints]
       ] as const) {
-        for (const paint of paints ?? []) normalize(paint.colorVar?.value?.alias, field, path)
+        for (const alias of paintVariableAliases(paints)) normalize(alias, field, path)
       }
       for (const effect of node.effects ?? []) {
         for (const alias of effectVariableAliases(effect)) normalize(alias, 'effects', path)

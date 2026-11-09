@@ -41,8 +41,9 @@ import {
   componentPropertyVariableValue
 } from './assignments/values'
 import {
-  applyColorVariableBinding,
   bindKiwiEffects,
+  bindKiwiPaint,
+  boundStopsFromScene,
   createEffects,
   createFillPaints,
   createStrokePaints,
@@ -120,7 +121,7 @@ const FIGMA_PAYLOAD_VARIABLE_MAP_FIELDS = new Set([
   'variableConsumptionMap',
   'parameterConsumptionMap'
 ])
-const FIGMA_PAYLOAD_PAINT_VARIABLE_FIELDS = new Set(['colorVar', 'opacityVar'])
+const FIGMA_PAYLOAD_PAINT_VARIABLE_FIELDS = new Set(['colorVar', 'opacityVar', 'stopsVar'])
 
 const SUPPORTED_VARIABLE_DATA_TYPES = new Set([
   'BOOLEAN',
@@ -368,10 +369,13 @@ function applyRawFigmaNodeFields(
     if ((key === 'fillPaints' || key === 'strokePaints') && node.source.id) {
       const paints = materialized[key]
       const current = key === 'fillPaints' ? node.fills : node.strokes
+      const list = key === 'fillPaints' ? 'fills' : 'strokes'
       nc[key] = paints?.map((paint, index) => {
-        const field = `${key === 'fillPaints' ? 'fills' : 'strokes'}/${index}/color`
-        const bound = applyColorVariableBinding(context, node, paint, field)
-        const resolved = node.boundVariables[field] ? current[index] : undefined
+        const field = `${list}/${index}/color`
+        const own = current.at(index)
+        const withStops = boundStopsFromScene(context, node, paint, own, list, index)
+        const bound = bindKiwiPaint(context, node, withStops, list, index)
+        const resolved = node.boundVariables[field] ? own : undefined
         return resolved
           ? { ...bound, color: context.safeColor(resolved.color), opacity: resolved.opacity }
           : bound

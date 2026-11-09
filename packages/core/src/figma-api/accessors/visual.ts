@@ -21,6 +21,7 @@ import { parseFigmaPaints, toFigmaPaint, type FigmaPaint } from '#core/figma-api
 import { getTextStyle } from '#core/figma-api/text/style'
 import {
   effectBindings,
+  gradientStopBindings,
   paintBindings,
   setEffectBindings,
   setPaintBindings
@@ -34,13 +35,17 @@ import { textStyleChanges } from '#core/text/character-style'
  */
 export function figmaFills(node: SceneNode): FigmaPaint[] {
   const bound = paintBindings(node, 'fills')
-  return node.fills.map((fill, index) => toFigmaPaint(fill, bound.get(index)))
+  const stops = gradientStopBindings(node, 'fills')
+  return node.fills.map((fill, index) => toFigmaPaint(fill, bound.get(index), stops.get(index)))
 }
 
 /** `node`'s strokes as Figma's plugin API reads them, as {@link figmaFills} reads fills. */
 export function figmaStrokes(node: SceneNode): FigmaPaint[] {
   const bound = paintBindings(node, 'strokes')
-  return node.strokes.map((stroke, index) => toFigmaPaint(stroke, bound.get(index)))
+  const stops = gradientStopBindings(node, 'strokes')
+  return node.strokes.map((stroke, index) =>
+    toFigmaPaint(stroke, bound.get(index), stops.get(index))
+  )
 }
 
 /**

@@ -1,11 +1,11 @@
 import type { SceneNode } from '@open-pencil/scene-graph'
-import { copyFills, copyStrokes } from '@open-pencil/scene-graph/copy'
+import { copyFills, copyGradientStop, copyStrokes } from '@open-pencil/scene-graph/copy'
 import { findInstanceAncestor } from '@open-pencil/scene-graph/instances'
 import { cloneInstanceOverrideState } from '@open-pencil/scene-graph/instances/overrides'
 import {
   variableBindingOwner,
   isNumericVariableBindingField,
-  paintBindingTarget
+  paintColorBindingOwner
 } from '@open-pencil/scene-graph/variables'
 
 import type { EditorContext } from '#core/editor/types'
@@ -27,12 +27,18 @@ export function createVariableBindingActions(ctx: EditorContext) {
     }
     if (isNumericVariableBindingField(path))
       Object.assign(previous, { [path]: node[path as keyof SceneNode] })
-    // Binding a paint gives it its variable's color, which undo takes back from that paint alone.
-    const target = paintBindingTarget(path)
+    // Binding a paint, or one of its gradient stops, gives it its variable's color, which undo
+    // takes back from that paint alone.
+    const target = paintColorBindingOwner(path)
     const targetPaint = target ? node[target.list].at(target.index) : undefined
     const previousPaint =
       target && targetPaint
-        ? { ...target, color: { ...targetPaint.color }, opacity: targetPaint.opacity }
+        ? {
+            ...target,
+            color: { ...targetPaint.color },
+            opacity: targetPaint.opacity,
+            gradientStops: targetPaint.gradientStops?.map(copyGradientStop)
+          }
         : null
     const owner = variableBindingOwner(ctx.graph, node)
     const nearest = findInstanceAncestor(ctx.graph, nodeId)
@@ -74,9 +80,13 @@ export function createVariableBindingActions(ctx: EditorContext) {
         )
         const current = ctx.graph.getNode(nodeId)
         if (previousPaint && current?.[previousPaint.list].at(previousPaint.index)) {
-          const { list, index, color, opacity } = previousPaint
+          const { list, index, color, opacity, gradientStops } = previousPaint
           const paints = list === 'fills' ? copyFills(current.fills) : copyStrokes(current.strokes)
-          Object.assign(paints[index], { color: { ...color }, opacity })
+          Object.assign(paints[index], {
+            color: { ...color },
+            opacity,
+            ...(gradientStops && { gradientStops: gradientStops.map(copyGradientStop) })
+          })
           Object.assign(restored, { [list]: paints })
         }
         ctx.graph.updateNode(nodeId, restored)

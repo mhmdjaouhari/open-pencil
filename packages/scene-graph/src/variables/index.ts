@@ -26,7 +26,8 @@ import {
   effectBindingTarget,
   effectBindingVariableType,
   type EffectBindingProperty,
-  paintBindingTarget,
+  gradientStopBindingTarget,
+  paintColorBindingOwner,
   STRING_BINDING_FIELDS,
   TEXT_CONTENT_VARIABLE_TYPES,
   VISIBILITY_VARIABLE_TYPES
@@ -283,6 +284,13 @@ function preparePaintBinding(
   if (paint.index >= currentLength) {
     throw new Error(`Index ${paint.index} out of range for ${paint.list} (length ${currentLength})`)
   }
+  const stop = gradientStopBindingTarget(field)
+  const stops = node[paint.list].at(paint.index)?.gradientStops ?? []
+  if (stop && stop.stop >= stops.length) {
+    throw new Error(
+      `Index ${stop.stop} out of range for gradient stops of ${paint.list}/${paint.index} (length ${stops.length})`
+    )
+  }
   // Auto-remove top-level dead binding (e.g. 'fills') when setting indexed binding
   if (paint.list in node.boundVariables) {
     graph.willChangeNode(node)
@@ -305,7 +313,7 @@ export function bindVariable(
     throw new Error(`Variable "${variableId}" not found`)
   }
 
-  const paint = paintBindingTarget(field)
+  const paint = paintColorBindingOwner(field)
   if (paint) preparePaintBinding(graph, node, paint, variable, field)
 
   const effect = effectBindingTarget(field)

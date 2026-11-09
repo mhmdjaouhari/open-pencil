@@ -13,7 +13,7 @@ import { resolvedNumericBindings } from '../variables/bindings'
 import {
   effectBindingTarget,
   isNumericVariableBindingField,
-  paintBindingTarget
+  paintColorBindingOwner
 } from '../variables/fields'
 import {
   applyBoundPaintColorsIn,
@@ -96,7 +96,7 @@ export function bindingProtection(scopes: ReadonlySet<string>[]): (field: string
     // Paints and effects an instance set itself own their bindings too, bound or not.
     const binding = overriddenBindingField(field)
     if (binding === null) return false
-    const paint = paintBindingTarget(binding)
+    const paint = paintColorBindingOwner(binding)
     if (paint) return fields.has(paint.list)
     return fields.has('effects') && effectBindingTarget(binding) !== null
   }

@@ -10,7 +10,11 @@ import {
   variableModeOverrideField
 } from '@open-pencil/scene-graph/instances/overrides'
 import { createDefaultSourceMetadata } from '@open-pencil/scene-graph/node-defaults'
-import { EFFECT_BINDING_PROPERTIES, effectBindingField } from '@open-pencil/scene-graph/variables'
+import {
+  EFFECT_BINDING_PROPERTIES,
+  effectBindingField,
+  gradientStopBindingField
+} from '@open-pencil/scene-graph/variables'
 
 import { nodeChangeToProps } from '../node-change'
 import { numericVariableBindingScales } from '../node-change/variable/bindings'
@@ -299,21 +303,27 @@ function recordPaintBindingClaims(
   paints: unknown
 ): void {
   if (!Array.isArray(paints)) return
-  let declared = false
+  const claimed: string[] = []
   for (const [index, paint] of paints.entries()) {
-    const alias = (paint as Paint).colorVar?.value?.alias
-    if (!alias) continue
-    const field = bindingOverrideField(`${scene}/${index}/color`)
+    const { colorVar, stopsVar } = paint as Paint
+    if (colorVar?.value?.alias) claimed.push(`${scene}/${index}/color`)
+    if (scene !== 'fills' && scene !== 'strokes') continue
+    stopsVar?.forEach((stop, position) => {
+      if (stop.colorVar?.value?.alias)
+        claimed.push(gradientStopBindingField(scene, index, position))
+    })
+  }
+  for (const binding of claimed) {
     setInstanceOverride(
       owner.instanceOverrides,
       owner.id,
       target.id,
-      field,
-      target.boundVariables[`${scene}/${index}/color`] ?? null
+      bindingOverrideField(binding),
+      target.boundVariables[binding] ?? null
     )
-    declared = true
   }
-  if (declared) setInstanceOverride(owner.instanceOverrides, owner.id, target.id, 'boundVariables')
+  if (claimed.length > 0)
+    setInstanceOverride(owner.instanceOverrides, owner.id, target.id, 'boundVariables')
 }
 
 function recordVariableModeClaims(owner: SceneNode, target: SceneNode, claim: NodeChange): void {

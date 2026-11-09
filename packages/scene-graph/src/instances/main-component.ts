@@ -1,6 +1,6 @@
 import type { SceneGraph } from '../graph'
 import type { SceneNode } from '../types'
-import { paintBindingTarget } from '../variables/fields'
+import { paintColorBindingOwner } from '../variables/fields'
 import { overriddenBindingField } from './overrides'
 
 /**
@@ -28,7 +28,7 @@ export function ownsSelfFillField(target: SceneNode, field: string): boolean {
   const binding = overriddenBindingField(field)
   return (
     binding !== null &&
-    paintBindingTarget(binding)?.list === 'fills' &&
+    paintColorBindingOwner(binding)?.list === 'fills' &&
     (own.has(field) || own.has('boundVariables') || own.has('fills'))
   )
 }
