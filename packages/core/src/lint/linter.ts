@@ -4,6 +4,7 @@ import type { SceneGraph, SceneNode } from '@open-pencil/scene-graph'
 import { colorToHex } from '@open-pencil/scene-graph/color'
 import { GENERATED_FRAME_TYPES, generatedFrameOwner } from '@open-pencil/scene-graph/generated'
 import { instanceMainComponent } from '@open-pencil/scene-graph/instances'
+import { instanceSlotFrames, ownsSlotContent } from '@open-pencil/scene-graph/slots'
 
 import { presets } from './presets'
 import { allRules } from './rules'
@@ -248,8 +249,18 @@ export class Linter {
       rule.check(node, context)
     }
     // Instance sublayers mirror their main component: issues there are fixed once in the
-    // component, so reporting every placed copy only multiplies the same finding.
-    if (node.type === 'INSTANCE') return
+    // component, so reporting every placed copy only multiplies the same finding. What the
+    // instance holds in its own slots is the document's, and is linted as its other layers are.
+    if (node.type === 'INSTANCE') {
+      const raw = this.graph?.getNode(id)
+      if (!this.graph || !raw) return
+      for (const frame of instanceSlotFrames(this.graph, raw)) {
+        if (!ownsSlotContent(this.graph, frame)) continue
+        const holder = this.nodeFor(frame.id, node)
+        for (const childId of frame.childIds) this.lintNode(childId, holder)
+      }
+      return
+    }
     for (const childId of node.childIds) this.lintNode(childId, node)
   }
 }
