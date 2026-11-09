@@ -207,7 +207,8 @@ const CHARACTER_FIELDS = [
   'textDecorationFills',
   'textDecorationSkipInk',
   'textUnderlineOffset',
-  'textCase'
+  'textCase',
+  'fontFeatures'
 ] as const satisfies readonly (keyof CSSCharacterStyle)[]
 
 function applyTextStyle(node: SceneNode, style: DesignStyleDeclaration): void {

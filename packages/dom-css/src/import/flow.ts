@@ -56,8 +56,10 @@ const CENTERED_TAGS = new Set(['button'])
 const TEXT_PROPERTIES = [
   'color',
   'font-family',
+  'font-feature-settings',
   'font-size',
   'font-style',
+  'font-variant-numeric',
   'font-weight',
   'letter-spacing',
   'line-height',

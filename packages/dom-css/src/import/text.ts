@@ -3,6 +3,7 @@ import { isEqual } from 'es-toolkit/predicate'
 
 import type {
   CharacterStyleOverride,
+  FontFeature,
   HyperlinkTarget,
   SceneNode,
   StyleRun,
@@ -36,6 +37,7 @@ export type CSSCharacterStyle = Pick<
   | 'textDecorationSkipInk'
   | 'textUnderlineOffset'
   | 'textCase'
+  | 'fontFeatures'
 >
 
 /** A character's style and the link it is part of. */
@@ -60,7 +62,9 @@ const CHARACTER_PROPERTIES = [
   'text-decoration-color',
   'text-decoration-thickness',
   'text-underline-offset',
-  'text-decoration-skip-ink'
+  'text-decoration-skip-ink',
+  'font-variant-numeric',
+  'font-feature-settings'
 ]
 
 const TEXT_BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
@@ -105,6 +109,39 @@ function textCaseFromCSS(value: string | undefined): SceneNode['textCase'] {
   return 'ORIGINAL'
 }
 
+/** The OpenType feature each `font-variant-numeric` keyword turns on. */
+const NUMERIC_FEATURES: Record<string, string> = {
+  'lining-nums': 'LNUM',
+  'oldstyle-nums': 'ONUM',
+  'proportional-nums': 'PNUM',
+  'tabular-nums': 'TNUM',
+  'diagonal-fractions': 'FRAC',
+  'stacked-fractions': 'AFRC',
+  ordinal: 'ORDN',
+  'slashed-zero': 'ZERO'
+}
+
+/**
+ * The OpenType features `font-variant-numeric` and `font-feature-settings` set (`tabular-nums`,
+ * `"liga" 0`), as `.fig` tags; `undefined` where neither says anything.
+ */
+function fontFeaturesFromCSS(style: DesignStyleDeclaration): FontFeature[] | undefined {
+  const numeric = pickStyle(style, 'font-variant-numeric')?.trim().toLowerCase()
+  const settings = pickStyle(style, 'font-feature-settings')?.trim()
+  if (numeric === undefined && settings === undefined) return undefined
+  const features = new Map<string, boolean>()
+  for (const keyword of numeric?.split(/\s+/) ?? []) {
+    const tag = NUMERIC_FEATURES[keyword]
+    if (tag) features.set(tag, true)
+  }
+  if (settings && settings !== 'normal')
+    for (const setting of settings.split(',')) {
+      const match = /^\s*["']([\w ]{4})["']\s*(on|off|\d+)?\s*$/.exec(setting)
+      if (match) features.set(match[1].toUpperCase(), match[2] !== 'off' && match[2] !== '0')
+    }
+  return [...features].map(([tag, enabled]) => ({ tag, enabled }))
+}
+
 /** The character style of CSS declarations, over `base` for what they leave out. */
 export function characterStyleFromCSS(
   style: DesignStyleDeclaration,
@@ -146,7 +183,8 @@ export function characterStyleFromCSS(
       pickStyle(style, 'text-decoration-skip-ink') === undefined
         ? base.textDecorationSkipInk
         : pickStyle(style, 'text-decoration-skip-ink') !== 'none',
-    textCase: textTransform === undefined ? base.textCase : textCaseFromCSS(textTransform)
+    textCase: textTransform === undefined ? base.textCase : textCaseFromCSS(textTransform),
+    fontFeatures: fontFeaturesFromCSS(style) ?? base.fontFeatures
   }
 }
 
