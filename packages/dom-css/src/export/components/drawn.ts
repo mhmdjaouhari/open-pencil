@@ -5,6 +5,7 @@ import type {
   SceneGraph,
   SceneNode
 } from '@open-pencil/scene-graph'
+import { scaleNodeChanges } from '@open-pencil/scene-graph/scaling'
 
 /** What a layer draws, which an instance can change without a property. */
 const DRAWN = [
@@ -37,16 +38,26 @@ const same = (a: SceneNode, b: SceneNode, fields: readonly (keyof SceneNode)[]) 
 const bound = (node: SceneNode, field: ComponentPropertyReferenceField) =>
   node.componentPropertyReferences.some((reference) => reference.field === field)
 
-function childrenMatch(graph: SceneGraph, drawn: SceneNode, main: SceneNode): boolean {
+function childrenMatch(
+  graph: SceneGraph,
+  drawn: SceneNode,
+  main: SceneNode,
+  scale: number
+): boolean {
   const children = graph.getChildren(drawn.id)
   const mains = graph.getChildren(main.id)
   return (
     children.length === mains.length &&
     children.every((child, index) => {
       const counterpart = mains.at(index)
-      return counterpart !== undefined && layerMatches(graph, child, counterpart)
+      return counterpart !== undefined && layerMatches(graph, child, counterpart, scale)
     })
   )
+}
+
+/** A main component's layer as an instance scaled by `scale` (`rescale`) draws it. */
+function scaled(main: SceneNode, scale: number): SceneNode {
+  return scale === 1 ? main : { ...main, ...scaleNodeChanges(main, scale, false) }
 }
 
 /**
@@ -54,26 +65,37 @@ function childrenMatch(graph: SceneGraph, drawn: SceneNode, main: SceneNode): bo
  * property of the component sets: the text a text property shows and what a boolean property
  * shows or hides, which the component's props pass on.
  */
-function layerMatches(graph: SceneGraph, drawn: SceneNode, main: SceneNode): boolean {
+function layerMatches(
+  graph: SceneGraph,
+  drawn: SceneNode,
+  source: SceneNode,
+  scale: number
+): boolean {
+  const main = scaled(source, scale)
   if (drawn.type !== main.type) return false
   if (!bound(main, 'VISIBLE') && drawn.visible !== main.visible) return false
   if (drawn.type === 'TEXT' && !bound(main, 'TEXT') && drawn.text !== main.text) return false
   if (drawn.type === 'INSTANCE' && drawn.componentId !== main.componentId) return false
   if (!same(drawn, main, DRAWN) || !same(drawn, main, LAYOUT)) return false
   // A slot's content is the instance's own, which the component's slot prop passes on.
-  return bound(main, 'SLOT_CONTENT') || childrenMatch(graph, drawn, main)
+  return bound(main, 'SLOT_CONTENT') || childrenMatch(graph, drawn, source, scale)
 }
 
 /**
  * Whether an instance draws exactly as the variant it shows, so a generated component given
  * its property values draws it: the same look, layout, words, and nested components, apart
- * from where its parent places and sizes it. An instance with any other change, such as edited
- * text no property sets or a fill of its own, draws its own layers instead.
+ * from where its parent places and sizes it, and the scale it was drawn at (`rescale`, which
+ * records it on the instance's layers as `componentScale`). An instance with any other change,
+ * such as edited text no property sets or a fill of its own, draws its own layers instead.
  */
 export function drawsAsMain(graph: SceneGraph, instance: SceneNode, main: SceneNode): boolean {
+  const first = graph.getChildren(instance.id).at(0)
+  const mainFirst = graph.getChildren(main.id).at(0)
+  const scale = first && mainFirst ? first.componentScale / mainFirst.componentScale : 1
+  const drawn = scaled(main, scale)
   return (
-    same(instance, main, DRAWN) &&
-    same(instance, main, LAYOUT) &&
-    childrenMatch(graph, instance, main)
+    same(instance, drawn, DRAWN) &&
+    same(instance, drawn, LAYOUT) &&
+    childrenMatch(graph, instance, main, scale)
   )
 }
