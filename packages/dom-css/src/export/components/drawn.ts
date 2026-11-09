@@ -73,7 +73,9 @@ function layerMatches(
 ): boolean {
   const main = scaled(source, scale)
   if (drawn.type !== main.type) return false
-  if (!bound(main, 'VISIBLE') && drawn.visible !== main.visible) return false
+  // A slot hidden is its prop left out, which the component draws as it draws an empty slot.
+  if (!bound(main, 'VISIBLE') && !bound(main, 'SLOT_CONTENT') && drawn.visible !== main.visible)
+    return false
   if (drawn.type === 'TEXT' && !bound(main, 'TEXT') && drawn.text !== main.text) return false
   if (drawn.type === 'INSTANCE' && drawn.componentId !== main.componentId) return false
   if (!same(drawn, main, DRAWN) || !same(drawn, main, LAYOUT)) return false
