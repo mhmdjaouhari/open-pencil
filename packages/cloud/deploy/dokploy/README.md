@@ -48,8 +48,11 @@ Two hostnames pointing at the Dokploy server, for example:
 
    Sign-up always confirms the address by email, so SMTP is required.
 
-3. **Domains**: `CLOUD_DOMAIN` → service `openpencil`, port `8787`; `S3_DOMAIN` → service
-   `seaweedfs`, port `8333`. Both with HTTPS (Let's Encrypt).
+3. **Domains**: leave Dokploy's Domains tab empty. The compose file routes `CLOUD_DOMAIN` to
+   `openpencil` (8787) and `S3_DOMAIN` to `seaweedfs` (8333) itself, with Traefik labels on
+   `dokploy-network` and Let's Encrypt certificates (`letsencrypt`), since domains added in the UI
+   do not reach Compose services reliably. Its routers are named `openpencil-cloud` and
+   `openpencil-files`; rename them if another app on the server uses those names.
 4. **Deploy**. `GET https://<CLOUD_DOMAIN>/ready` answers 200 once it has migrated the database.
 
 ## 4. The first administrator
