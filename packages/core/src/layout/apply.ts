@@ -13,6 +13,7 @@ import {
 
 import { keepsSavedLayout, usesDetachedDerivedLayout } from './derived'
 import { laidOutFlowBox } from './flow-edges'
+import { gridHugsHeight } from './grid'
 
 export type ComputeLayoutFn = (graph: SceneGraph, frameId: string) => void
 
@@ -170,7 +171,7 @@ function applyFrameSize(
   computeLayout: ComputeLayoutFn
 ): void {
   if (frame.layoutMode === 'GRID') {
-    if (frame.gridTemplateRows.length === 0) {
+    if (frame.gridTemplateRows.length === 0 || gridHugsHeight(frame)) {
       writeLayoutGeometry(graph, frame.id, { height: yogaNode.getComputedHeight() }, computeLayout)
     }
     return

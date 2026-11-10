@@ -11,6 +11,11 @@ import {
   setLayoutPadding
 } from './yoga-helpers'
 
+/** Whether a grid's height hugs its rows, as Figma's grids can. */
+export function gridHugsHeight(node: SceneNode): boolean {
+  return node.layoutMode === 'GRID' && node.counterAxisSizing === 'HUG'
+}
+
 function configureAsGrid(
   yogaNode: YogaNode,
   node: SceneNode,
@@ -19,7 +24,9 @@ function configureAsGrid(
   yogaNode.setDisplay(Display.Grid)
   yogaNode.setDirection(direction === 'RTL' ? Direction.RTL : Direction.LTR)
   yogaNode.setWidth(node.width)
-  if (node.gridTemplateRows.length > 0 || node.height > 0) {
+  // A grid set to Hug its height takes its rows' (a grid lays out like a horizontal stack, so
+  // its height is the counter axis).
+  if (!gridHugsHeight(node) && (node.gridTemplateRows.length > 0 || node.height > 0)) {
     yogaNode.setHeight(node.height)
   }
 
