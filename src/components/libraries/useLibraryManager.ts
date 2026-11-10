@@ -2,7 +2,12 @@ import { computed, onScopeDispose, ref, watch, type Ref } from 'vue'
 
 import type { EditorStore } from '@/app/editor/session'
 import { notificationMessages } from '@/app/i18n/notifications'
-import { createActiveStorageAdapter, storagePreferencesComplete } from '@/app/integrations/storage'
+import {
+  createActiveStorageAdapter,
+  createStorageAdapter,
+  storageLocationOf,
+  storagePreferencesComplete
+} from '@/app/integrations/storage'
 import { activeStorageProviderID } from '@/app/integrations/storage/preferences'
 import {
   readLibraryCatalogSource,
@@ -48,11 +53,32 @@ export function useLibraryManager(
     scopeLibraryUpdateGroups(editor, updateGroups.value, showAllPages.value)
   )
 
+  /**
+   * The library files of the storage the open document lives in, as a Cloud document's
+   * workspace, or else of the storage chosen in Settings.
+   */
+  function storageLibraryObjects() {
+    const binding = editor.getStorageBinding()
+    const own = binding ? createStorageAdapter(storageLocationOf(binding)).libraryObjects : null
+    if (own) return own
+    const providerId = activeStorageProviderID.value
+    if (!storagePreferencesComplete(providerId)) throw new Error('Storage is not configured')
+    const objects = createActiveStorageAdapter(providerId).libraryObjects
+    if (!objects) throw new Error('Storage libraries are unavailable')
+    return objects
+  }
+
+  /** The storage catalog follows the document, so another tab reads its own storage's libraries. */
+  function useDocumentStorage() {
+    service.useStorageCatalog(new StorageLibraryCatalog(storageLibraryObjects()))
+  }
+
   async function refresh() {
     const request = ++requestId
     loading.value = true
     let read = false
     try {
+      if (service.catalogSource === 'storage') useDocumentStorage()
       await service.refresh(editor)
       const groups = await service.getUpdateGroups(editor)
       if (request === requestId) updateGroups.value = groups
@@ -82,13 +108,7 @@ export function useLibraryManager(
   async function setSource(source: 'local' | 'storage') {
     await runOperation(async () => {
       if (source === 'local') service.useLocalCatalog()
-      else {
-        const providerId = activeStorageProviderID.value
-        if (!storagePreferencesComplete(providerId)) throw new Error('Storage is not configured')
-        const objects = createActiveStorageAdapter(providerId).libraryObjects
-        if (!objects) throw new Error('Storage libraries are unavailable')
-        service.useStorageCatalog(new StorageLibraryCatalog(objects))
-      }
+      else useDocumentStorage()
       await refresh()
     })
   }
