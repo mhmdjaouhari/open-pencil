@@ -48,11 +48,15 @@ Two hostnames pointing at the Dokploy server, for example:
 
    Sign-up always confirms the address by email, so SMTP is required.
 
-3. **Domains**: leave Dokploy's Domains tab empty. The compose file routes `CLOUD_DOMAIN` to
-   `openpencil` (8787) and `S3_DOMAIN` to `seaweedfs` (8333) itself, with Traefik labels on
-   `dokploy-network` and Let's Encrypt certificates (`letsencrypt`), since domains added in the UI
-   do not reach Compose services reliably. Its routers are named `openpencil-cloud` and
-   `openpencil-files`; rename them if another app on the server uses those names.
+3. **Domains**: leave Dokploy's Domains tab empty: its labels are not applied to Compose services
+   (dokploy issues #4324, #3945), and if they were they would duplicate these routers. The compose
+   file routes `CLOUD_DOMAIN` to `openpencil` (8787) and `S3_DOMAIN` to `seaweedfs` (8333) itself,
+   with Traefik labels on `dokploy-network`, plain HTTP redirected to HTTPS, and certificates from
+   the `cloudflare` resolver (DNS challenge, which works while Cloudflare proxies the domains). Set
+   `TLS_CERT_RESOLVER` if your Traefik names its resolver otherwise. A Cloudflare **525** means
+   Traefik has no certificate for the hostname: check the resolver name and Traefik's logs. Its
+   routers are named `openpencil-cloud` and `openpencil-files`; rename them if another app on the
+   server uses those names.
 4. **Deploy**. `GET https://<CLOUD_DOMAIN>/ready` answers 200 once it has migrated the database.
 
 ## 4. The first administrator

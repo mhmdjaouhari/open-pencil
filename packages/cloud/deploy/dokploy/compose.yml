@@ -28,18 +28,23 @@ services:
     networks:
       - default
       - dokploy-network
-    # Routed by Dokploy's Traefik on CLOUD_DOMAIN, set here: domains added in Dokploy's UI do not
-    # reach Compose services reliably. The collaboration relay's WebSockets pass through as is.
+    # Routed by Dokploy's Traefik on CLOUD_DOMAIN, set here: Dokploy's Domains tab does not apply
+    # its labels to Compose services (dokploy issues #4324, #3945), so keep it empty. Certificates
+    # come from TLS_CERT_RESOLVER, `cloudflare` by default (DNS challenge, for domains Cloudflare
+    # proxies). The collaboration relay's WebSockets pass through as is.
     labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
+      # Plain HTTP only redirects.
+      - traefik.http.middlewares.openpencil-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.openpencil-https.redirectscheme.permanent=true
       - traefik.http.routers.openpencil-cloud.rule=Host(`${CLOUD_DOMAIN:?Set CLOUD_DOMAIN}`)
       - traefik.http.routers.openpencil-cloud.entrypoints=websecure
-      - traefik.http.routers.openpencil-cloud.tls.certresolver=letsencrypt
+      - traefik.http.routers.openpencil-cloud.tls.certresolver=${TLS_CERT_RESOLVER:-cloudflare}
       - traefik.http.routers.openpencil-cloud.service=openpencil-cloud
       - traefik.http.routers.openpencil-cloud-http.rule=Host(`${CLOUD_DOMAIN:?Set CLOUD_DOMAIN}`)
       - traefik.http.routers.openpencil-cloud-http.entrypoints=web
-      - traefik.http.routers.openpencil-cloud-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.openpencil-cloud-http.middlewares=openpencil-https
       - traefik.http.routers.openpencil-cloud-http.service=openpencil-cloud
       - traefik.http.services.openpencil-cloud.loadbalancer.server.port=8787
 
@@ -82,13 +87,15 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
+      - traefik.http.middlewares.openpencil-files-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.openpencil-files-https.redirectscheme.permanent=true
       - traefik.http.routers.openpencil-files.rule=Host(`${S3_DOMAIN:?Set S3_DOMAIN}`)
       - traefik.http.routers.openpencil-files.entrypoints=websecure
-      - traefik.http.routers.openpencil-files.tls.certresolver=letsencrypt
+      - traefik.http.routers.openpencil-files.tls.certresolver=${TLS_CERT_RESOLVER:-cloudflare}
       - traefik.http.routers.openpencil-files.service=openpencil-files
       - traefik.http.routers.openpencil-files-http.rule=Host(`${S3_DOMAIN:?Set S3_DOMAIN}`)
       - traefik.http.routers.openpencil-files-http.entrypoints=web
-      - traefik.http.routers.openpencil-files-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.openpencil-files-http.middlewares=openpencil-files-https
       - traefik.http.routers.openpencil-files-http.service=openpencil-files
       - traefik.http.services.openpencil-files.loadbalancer.server.port=8333
     healthcheck:
