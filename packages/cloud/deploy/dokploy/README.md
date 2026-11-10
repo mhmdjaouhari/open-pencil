@@ -40,9 +40,9 @@ Two hostnames pointing at the Dokploy server, for example:
    SMTP_SECURE=false
    SMTP_USER=
    SMTP_PASSWORD=
+   ENROLLMENT_NOTIFY=you@example.com   # one address, without quotes: told of new sign-ups
    # Optional
    ENROLLMENT_MODE=approval    # or "open"; "closed" stops new accounts
-   ENROLLMENT_NOTIFY="you@example.com"
    OPENPENCIL_IMAGE=ghcr.io/<owner>/openpencil-cloud:syndic
    ```
 

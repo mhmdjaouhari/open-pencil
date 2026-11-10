@@ -146,7 +146,8 @@ configs:
       # A new account waits until an administrator approves it in the server's admin pages.
       [authentication.enrollment]
       mode = "${ENROLLMENT_MODE:-approval}"
-      notification_emails = [${ENROLLMENT_NOTIFY:-}]
+      # Told of each new sign-up waiting for approval.
+      notification_emails = ["${ENROLLMENT_NOTIFY:?Set ENROLLMENT_NOTIFY to the address told of new sign-ups}"]
 
       [authentication.email_password]
       enabled = true
