@@ -198,7 +198,7 @@ describe('Tailwind JSX layout classes', () => {
       gridRowGap: 0
     })
     const jsx = tw(graph, frame.id)
-    expect(jsx).toContain('grid-cols-[200px_1fr_auto]')
+    expect(jsx).toContain('grid-cols-[200px_minmax(0,1fr)_auto]')
     expect(jsx).not.toContain('grid-rows')
   })
 

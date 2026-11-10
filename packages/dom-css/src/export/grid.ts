@@ -2,11 +2,15 @@ import type { GridTrack, SceneNode } from '@open-pencil/scene-graph'
 
 import type { DesignStyleDeclaration } from '../types'
 
+/** A share track no wider than its share (`minmax(0,…)`), as auto layout's never grows with content. */
 function trackToCSS(track: GridTrack): string {
-  if (track.sizing === 'FR') return `${track.value}fr`
+  if (track.sizing === 'FR') return `minmax(0,${track.value}fr)`
   if (track.sizing === 'FIXED') return `${track.value}px`
   return 'auto'
 }
+
+/** Tracks CSS makes anyway: every one sized by its content, as implicit tracks are. */
+const implicit = (tracks: GridTrack[]) => tracks.every((track) => track.sizing === 'AUTO')
 
 /** Equal `1fr` tracks use Tailwind's `grid-cols-N` form, which keeps them from overflowing. */
 function tracksToCSS(tracks: GridTrack[]): string {
@@ -21,9 +25,9 @@ export function addGridContainer(
   css: (field: string, literal: string) => string
 ): void {
   style.display = 'grid'
-  if (node.gridTemplateColumns.length > 0)
+  if (node.gridTemplateColumns.length > 0 && !implicit(node.gridTemplateColumns))
     style['grid-template-columns'] = tracksToCSS(node.gridTemplateColumns)
-  if (node.gridTemplateRows.length > 0)
+  if (node.gridTemplateRows.length > 0 && !implicit(node.gridTemplateRows))
     style['grid-template-rows'] = tracksToCSS(node.gridTemplateRows)
   if (node.gridColumnGap > 0) style['column-gap'] = css('gridColumnGap', `${node.gridColumnGap}px`)
   if (node.gridRowGap > 0) style['row-gap'] = css('gridRowGap', `${node.gridRowGap}px`)
