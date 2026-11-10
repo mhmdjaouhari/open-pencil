@@ -576,7 +576,9 @@ function convertLayoutProps(
   | 'strokesIncludedInLayout'
   | 'layoutDirection'
 > &
-  Partial<Pick<SceneNode, 'derivedLayout'>> {
+  Partial<Pick<SceneNode, 'derivedLayout' | GridLayoutField>> {
+  const grid = gridLayoutProps(nc)
+  if (grid) return grid
   const layoutMode = mapStackMode(nc.stackMode)
   const primaryAxisSizing =
     nc.stackPrimarySizing === undefined &&
@@ -610,7 +612,58 @@ function convertLayoutProps(
     strokesIncludedInLayout: (nc.strokesIncludedInLayout ?? false) as boolean,
     layoutDirection:
       readNodeChangePluginData(nc, OPEN_PENCIL_PLUGIN_DATA.layoutDirection) ?? 'AUTO',
-    ...(derivedLayout ? { derivedLayout } : {})
+    ...(derivedLayout ? { derivedLayout } : {}),
+    ...gridChildProps(nc)
+  }
+}
+
+type GridLayoutField =
+  | 'gridTemplateColumns'
+  | 'gridTemplateRows'
+  | 'gridColumnGap'
+  | 'gridRowGap'
+  | 'gridPosition'
+
+/** A grid child's own cell, which OpenPencil writes as plugin data (`writeGridLayout`). */
+function gridChildProps(nc: NodeChange): Pick<SceneNode, 'gridPosition'> | Record<string, never> {
+  const position = readNodeChangePluginData(nc, OPEN_PENCIL_PLUGIN_DATA.gridPosition)
+  return position ? { gridPosition: position } : {}
+}
+
+/**
+ * A grid frame's layout, from the plugin data OpenPencil writes for it (`writeGridLayout`) on a
+ * record Figma stores without auto layout; a child's own layout fields are read as for any frame.
+ */
+function gridLayoutProps(nc: NodeChange): ReturnType<typeof convertLayoutProps> | undefined {
+  const grid = readNodeChangePluginData(nc, OPEN_PENCIL_PLUGIN_DATA.gridLayout)
+  if (!grid || (nc.stackMode !== undefined && nc.stackMode !== 'NONE')) return undefined
+  const [paddingTop, paddingRight, paddingBottom, paddingLeft] = grid.padding
+  return {
+    layoutMode: 'GRID',
+    gridTemplateColumns: grid.columns,
+    gridTemplateRows: grid.rows,
+    gridColumnGap: grid.columnGap,
+    gridRowGap: grid.rowGap,
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    primaryAxisSizing: grid.primaryAxisSizing,
+    counterAxisSizing: grid.counterAxisSizing,
+    itemSpacing: 0,
+    primaryAxisAlign: 'MIN',
+    counterAxisAlign: 'MIN',
+    layoutWrap: 'NO_WRAP',
+    counterAxisSpacing: 0,
+    layoutPositioning: nc.stackPositioning === 'ABSOLUTE' ? 'ABSOLUTE' : 'AUTO',
+    layoutGrow: nc.stackChildPrimaryGrow ?? 0,
+    layoutAlignSelf: mapAlignSelf(nc.stackChildAlignSelf),
+    counterAxisAlignContent: 'AUTO',
+    itemReverseZIndex: (nc.stackReverseZIndex ?? false) as boolean,
+    strokesIncludedInLayout: (nc.strokesIncludedInLayout ?? false) as boolean,
+    layoutDirection:
+      readNodeChangePluginData(nc, OPEN_PENCIL_PLUGIN_DATA.layoutDirection) ?? 'AUTO',
+    ...gridChildProps(nc)
   }
 }
 

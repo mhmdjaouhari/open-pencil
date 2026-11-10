@@ -14,8 +14,11 @@ import { nodeStatusSchema, statusWorkflowSchema } from '../statuses/schema'
 import {
   MODE_ATTRIBUTE_PATTERN,
   TOKEN_UNITS,
+  type AxisSizingMode,
   type EnabledLibraryBinding,
   type ExportSetting,
+  type GridPosition,
+  type GridTrack,
   type LayoutDirection,
   type LibraryAssetSource,
   type PluginDataEntry,
@@ -34,6 +37,48 @@ const DIRECTIONS = ['AUTO', 'LTR', 'RTL'] as const satisfies readonly (
   | TextDirection
   | LayoutDirection
 )[]
+
+const lengthSchema = v.pipe(v.number(), v.finite(), v.minValue(0))
+
+const gridTracksSchema: v.GenericSchema<unknown, GridTrack[]> = v.array(
+  v.object({ sizing: v.picklist(['FIXED', 'FR', 'AUTO']), value: lengthSchema })
+)
+
+/**
+ * A grid layout's own fields, which Figma keeps in its grid records; OpenPencil writes them as
+ * plugin data until its `.fig` writer encodes those.
+ */
+export interface StoredGridLayout {
+  columns: GridTrack[]
+  rows: GridTrack[]
+  columnGap: number
+  rowGap: number
+  /** Top, right, bottom, left. */
+  padding: [number, number, number, number]
+  primaryAxisSizing: AxisSizingMode
+  counterAxisSizing: AxisSizingMode
+}
+
+const SIZINGS = ['FIXED', 'HUG'] as const satisfies readonly AxisSizingMode[]
+
+const gridLayoutSchema: v.GenericSchema<unknown, StoredGridLayout> = v.object({
+  columns: gridTracksSchema,
+  rows: gridTracksSchema,
+  columnGap: lengthSchema,
+  rowGap: lengthSchema,
+  padding: v.tuple([lengthSchema, lengthSchema, lengthSchema, lengthSchema]),
+  primaryAxisSizing: v.picklist(SIZINGS),
+  counterAxisSizing: v.picklist(SIZINGS)
+})
+
+const trackIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(1))
+
+const gridPositionSchema: v.GenericSchema<unknown, GridPosition> = v.object({
+  column: trackIndexSchema,
+  row: trackIndexSchema,
+  columnSpan: trackIndexSchema,
+  rowSpan: trackIndexSchema
+})
 
 const textPathBoxSchema: v.GenericSchema<unknown, Rect> = v.pipe(
   v.object({ x: v.number(), y: v.number(), width: v.number(), height: v.number() }),
@@ -163,6 +208,10 @@ export const OPEN_PENCIL_PLUGIN_DATA = {
   textDirection: textPluginDataField('textDirection', 'format', DIRECTIONS),
   /** An auto-layout frame's direction. */
   layoutDirection: textPluginDataField('layoutDirection', 'format', DIRECTIONS),
+  /** A grid frame's tracks, gaps, padding, and sizing (`StoredGridLayout`). */
+  gridLayout: jsonPluginDataField('gridLayout', 'format', gridLayoutSchema),
+  /** The cell a grid's child is placed in, when it is placed rather than flowed. */
+  gridPosition: jsonPluginDataField('gridPosition', 'format', gridPositionSchema),
   /** Marks a component set Figma would read as a plain frame. */
   nodeType: textPluginDataField('nodeType', 'format', ['COMPONENT_SET']),
   /** Variable bindings by field path, including those Figma cannot store natively. */

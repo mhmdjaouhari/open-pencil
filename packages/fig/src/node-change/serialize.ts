@@ -9,7 +9,11 @@ import type {
 import { DEFAULT_STROKE_WEIGHT } from '@open-pencil/scene-graph/constants'
 import { normalizeFontFamily } from '@open-pencil/scene-graph/font-style'
 import { fractionalPosition } from '@open-pencil/scene-graph/order-keys'
-import { OPEN_PENCIL_PLUGIN_DATA, withPluginData } from '@open-pencil/scene-graph/plugin-data'
+import {
+  OPEN_PENCIL_PLUGIN_DATA,
+  withPluginData,
+  type StoredGridLayout
+} from '@open-pencil/scene-graph/plugin-data'
 import type { GUID, JSONObject } from '@open-pencil/scene-graph/primitives'
 
 import { effectiveFigmaRawNodeFields } from '../source-metadata'
@@ -285,8 +289,31 @@ function writeLayoutDirection(node: SceneNode): void {
   )
 }
 
+/**
+ * A grid frame's layout and a placed child's cell as OpenPencil plugin data, which the reader
+ * turns back into a grid (`gridLayoutProps`); Figma reads the frame as one without auto layout.
+ */
+function writeGridLayout(node: SceneNode): void {
+  const grid: StoredGridLayout | undefined =
+    node.layoutMode === 'GRID'
+      ? {
+          columns: node.gridTemplateColumns.map((track) => ({ ...track })),
+          rows: node.gridTemplateRows.map((track) => ({ ...track })),
+          columnGap: node.gridColumnGap,
+          rowGap: node.gridRowGap,
+          padding: [node.paddingTop, node.paddingRight, node.paddingBottom, node.paddingLeft],
+          primaryAxisSizing: node.primaryAxisSizing,
+          counterAxisSizing: node.counterAxisSizing
+        }
+      : undefined
+  const position = node.gridPosition ? { ...node.gridPosition } : undefined
+  node.pluginData = withPluginData(node.pluginData, OPEN_PENCIL_PLUGIN_DATA.gridLayout, grid)
+  node.pluginData = withPluginData(node.pluginData, OPEN_PENCIL_PLUGIN_DATA.gridPosition, position)
+}
+
 function serializeLayoutProps(node: SceneNode, nc: KiwiNodeChange, graph: SceneGraph): void {
   if (!node.source.id) writeLayoutDirection(node)
+  writeGridLayout(node)
   serializeSizeConstraints(node, nc)
   const figLayout = node.source.fig.layout
   if (figLayout) {
