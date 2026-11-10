@@ -5,7 +5,9 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
   entry: {
     server: './src/runtime/node/main.ts',
-    services: './src/runtime/node/services/main.ts'
+    services: './src/runtime/node/services/main.ts',
+    // Approving and granting the first administrator from inside a running container.
+    admin: './src/runtime/node/admin.ts'
   },
   platform: 'node',
   format: ['esm'],

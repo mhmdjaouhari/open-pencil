@@ -1,0 +1,68 @@
+name: Cloud image (Syndic)
+
+# Builds the fork's Cloud image, with workspace component libraries, for the Syndic deployment on
+# Dokploy (packages/cloud/deploy/dokploy), and publishes it as
+# ghcr.io/<owner>/openpencil-cloud:syndic and :sha-<commit>. Dokploy pulls it; nothing is compiled
+# on the server.
+on:
+  push:
+    branches: [syndic/code-connect]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-image-syndic
+  cancel-in-progress: true
+
+jobs:
+  image:
+    name: Build Cloud image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The HTML engine's WebAssembly module, built here where Rust is installed and the module is
+      # cached; the image builds everything else from the context, which carries it.
+      - uses: ./.github/actions/setup/workspace
+        with:
+          cache-scope: cloud-image-syndic
+
+      - name: Build the HTML engine's WebAssembly module
+        run: bun run --filter @open-pencil/html-engine build:wasm
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/openpencil-cloud
+          tags: |
+            type=raw,value=syndic
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0 AND MIT
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: packages/cloud/deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=cloud-image-syndic
+          cache-to: type=gha,scope=cloud-image-syndic,mode=max

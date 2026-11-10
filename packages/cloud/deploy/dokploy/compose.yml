@@ -1,0 +1,201 @@
+# OpenPencil Cloud for Syndic on Dokploy: the fork's image (with workspace component libraries),
+# PostgreSQL, and its own SeaweedFS. Settings come from Dokploy's Environment tab; README.md here
+# lists them and the domains to add. Compose builds the Cloud TOML and SeaweedFS's keys from them.
+name: openpencil-cloud
+
+services:
+  openpencil:
+    image: ${OPENPENCIL_IMAGE:-ghcr.io/mhmdjaouhari/openpencil-cloud:syndic}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bucket:
+        condition: service_completed_successfully
+    environment:
+      OPENPENCIL_CLOUD_CONFIG: /etc/openpencil/openpencil-cloud.toml
+      DATABASE_URL: postgres://openpencil:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/openpencil
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET to at least 32 random characters}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      OPENPENCIL_CLOUD_SMTP_USER: ${SMTP_USER:-}
+      OPENPENCIL_CLOUD_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    configs:
+      - source: cloud-toml
+        target: /etc/openpencil/openpencil-cloud.toml
+    expose:
+      - '8787'
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openpencil
+      POSTGRES_USER: openpencil
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openpencil -d openpencil']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Browsers upload and download through presigned links, so it answers on its own public domain
+  # (S3_DOMAIN); the server reaches it there too, as the links it signs name that address.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.41
+    restart: unless-stopped
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.port=8333
+      - -s3.config=/etc/seaweedfs/s3.json
+    configs:
+      - source: seaweedfs-keys
+        target: /etc/seaweedfs/s3.json
+    volumes:
+      - storage:/data
+    expose:
+      - '8333'
+    healthcheck:
+      test: ['CMD', 'nc', '-z', '127.0.0.1', '8333']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Creates the bucket once; a later deploy finds it and exits.
+  bucket:
+    image: amazon/aws-cli:2.27.49
+    restart: 'no'
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        aws --endpoint-url http://seaweedfs:8333 s3api head-bucket --bucket openpencil
+        || aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket openpencil
+
+configs:
+  seaweedfs-keys:
+    content: |
+      {
+        "identities": [
+          {
+            "name": "openpencil-cloud",
+            "credentials": [
+              { "accessKey": "${S3_ACCESS_KEY_ID}", "secretKey": "${S3_SECRET_ACCESS_KEY}" }
+            ],
+            "actions": ["Admin", "Read", "List", "Write"]
+          }
+        ]
+      }
+
+  # openpencil-cloud.example.toml in the parent folder documents every setting.
+  cloud-toml:
+    content: |
+      schema_version = 2
+
+      [deployment]
+      mode = "self-hosted"
+      public_url = "https://${CLOUD_DOMAIN:?Set CLOUD_DOMAIN}"
+      indexing = "deny"
+      # Everyone signs in; the editor is for the team.
+      local_editor = false
+
+      [database]
+
+      # A new account waits until an administrator approves it in the server's admin pages.
+      [authentication.enrollment]
+      mode = "${ENROLLMENT_MODE:-approval}"
+      notification_emails = [${ENROLLMENT_NOTIFY:-}]
+
+      [authentication.email_password]
+      enabled = true
+      sign_up = true
+      minimum_password_length = 12
+      maximum_password_length = 128
+      verification_link_lifetime_minutes = 60
+      password_reset_link_lifetime_minutes = 60
+      compromised_password_check = true
+
+      [authentication.mfa]
+      required_for_admins = false
+      totp = true
+      recovery_codes = true
+      trusted_device_lifetime_days = 14
+
+      [authentication.passkeys]
+      enabled = true
+      rp_name = "Syndic Design"
+
+      # Dokploy's Traefik sets the client's address in X-Forwarded-For.
+      [authentication.trusted_proxies]
+      headers = ["x-forwarded-for"]
+      addresses = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+
+      [object_storage]
+      endpoint = "https://${S3_DOMAIN:?Set S3_DOMAIN}"
+      region = "us-east-1"
+      bucket = "openpencil"
+      force_path_style = true
+      checksum_verification = "metadata"
+      maximum_upload_bytes = 1073741824
+
+      [collaboration]
+      maximum_message_bytes = 1048576
+      maximum_connections_per_room = 1000
+
+      [documents]
+      retention_days = 30
+
+      [email]
+      transport = "smtp"
+      from = "${EMAIL_FROM:?Set EMAIL_FROM, such as Syndic Design <design@example.com>}"
+
+      [email.smtp]
+      host = "${SMTP_HOST:?Set SMTP_HOST}"
+      port = ${SMTP_PORT:-587}
+      secure = ${SMTP_SECURE:-false}
+
+      [workers.email]
+      batch_size = 50
+      interval_ms = 5000
+      lease_ms = 300000
+      maximum_attempts = 5
+
+      [workers.cleanup]
+      enabled = true
+      batch_size = 100
+      interval_ms = 60000
+      lease_ms = 300000
+
+      [entitlements]
+      source = "static"
+
+      [entitlements.documents]
+      maximum_file_bytes = 1073741824
+      revision_history = true
+
+      [entitlements.storage]
+      maximum_bytes = 107374182400
+
+      [entitlements.sharing]
+      links = true
+      guest_view = false
+      guest_edit = false
+      guest_presence = false
+
+      [entitlements.collaboration]
+      enabled = true
+      maximum_participants = 50
+
+volumes:
+  database:
+  storage:
