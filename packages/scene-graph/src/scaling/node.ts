@@ -16,11 +16,22 @@ function scaledOptional(value: number | null, scale: number): number | null {
   return value == null ? null : value * scale
 }
 
+/**
+ * A paint's scaled fields, each only where the paint has it: a field written as `undefined`
+ * would make the copy differ from its source to deep comparison, so an instance rescaled by 1
+ * would read as overriding its component's paints.
+ */
+function present<T extends object>(fields: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  ) as Partial<T>
+}
+
 function scaledStrokes(strokes: readonly Stroke[], scale: number): Stroke[] {
   return strokes.map((stroke) => ({
     ...structuredClone(stroke),
     weight: stroke.weight * scale,
-    dashPattern: stroke.dashPattern?.map((value) => value * scale)
+    ...present({ dashPattern: stroke.dashPattern?.map((value) => value * scale) })
   }))
 }
 
@@ -36,14 +47,16 @@ function scaledEffects(effects: readonly Effect[], scale: number): Effect[] {
 function scaledFills(fills: readonly Fill[], scale: number): Fill[] {
   return fills.map((fill) => ({
     ...structuredClone(fill),
-    scale: fill.scale == null ? undefined : fill.scale * scale,
-    spacing: fill.spacing == null ? undefined : fill.spacing * scale,
-    patternSpacing: fill.patternSpacing
-      ? { x: fill.patternSpacing.x * scale, y: fill.patternSpacing.y * scale }
-      : undefined,
-    noiseSize: fill.noiseSize
-      ? { x: fill.noiseSize.x * scale, y: fill.noiseSize.y * scale }
-      : undefined
+    ...present({
+      scale: fill.scale == null ? undefined : fill.scale * scale,
+      spacing: fill.spacing == null ? undefined : fill.spacing * scale,
+      patternSpacing: fill.patternSpacing
+        ? { x: fill.patternSpacing.x * scale, y: fill.patternSpacing.y * scale }
+        : undefined,
+      noiseSize: fill.noiseSize
+        ? { x: fill.noiseSize.x * scale, y: fill.noiseSize.y * scale }
+        : undefined
+    })
   }))
 }
 
