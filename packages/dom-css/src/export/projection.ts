@@ -412,7 +412,9 @@ function styleFromTextNode(
   }
   const textTransform = textCaseToCSS(node.textCase)
   if (textTransform) style['text-transform'] = textTransform
-  style['white-space'] = node.maxLines === 1 ? 'nowrap' : 'pre-wrap'
+  // Breaks and runs of spaces the text keeps need `pre-wrap`; plain words wrap as HTML's do.
+  if (node.maxLines === 1) style['white-space'] = 'nowrap'
+  else if (/\n|\s{2}|^\s|\s$/.test(node.text)) style['white-space'] = 'pre-wrap'
   return style
 }
 

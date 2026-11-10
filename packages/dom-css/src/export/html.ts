@@ -2,6 +2,7 @@ import { escapeAttribute, escapeText } from 'entities'
 import { twirl } from 'twirlwind'
 
 import type { DesignDocument, DesignElement, DesignNode, DesignText } from '../types'
+import { tidyUtilities } from './utilities'
 
 export interface SerializeHTMLOptions {
   style?: 'inline' | 'tailwind'
@@ -65,8 +66,11 @@ export function serializeTailwindClasses(
 ): string | undefined {
   const style = serializeStyle(node)
   if (!style) return undefined
-  const className = twirl(style, { theme: { variables: themeVariables } })
-  return className.length > 0 ? className : undefined
+  const classes = tidyUtilities(
+    splitWhitespace(twirl(style, { theme: { variables: themeVariables } })),
+    themeVariables
+  )
+  return classes.length > 0 ? classes.join(' ') : undefined
 }
 
 export function mergeClassNames(...values: Array<string | undefined>): string | undefined {

@@ -13,17 +13,17 @@ describe('Tailwind JSX layout classes', () => {
     })
     const jsx = tw(graph, node.id)
     expect(jsx).toContain('w-4')
-    expect(jsx).toContain('h-[2px]')
+    expect(jsx).toContain('h-0.5')
   })
 
   test('non-standard spacing falls back to arbitrary value', () => {
     const graph = makeSceneGraph('Page 1')
     const node = graph.createNode('RECTANGLE', firstPageId(graph), {
-      width: 37,
+      width: 37.5,
       height: 100
     })
     const jsx = tw(graph, node.id)
-    expect(jsx).toContain('w-[37px]')
+    expect(jsx).toContain('w-[37.5px]')
     expect(jsx).toContain('h-25')
   })
 
@@ -31,11 +31,11 @@ describe('Tailwind JSX layout classes', () => {
     const graph = makeSceneGraph('Page 1')
     const node = graph.createNode('RECTANGLE', firstPageId(graph), {
       width: 1,
-      height: 1
+      height: 8
     })
     const jsx = tw(graph, node.id)
     expect(jsx).toContain('w-px')
-    expect(jsx).toContain('h-px')
+    expect(jsx).toContain('h-2')
   })
 
   test('auto-layout frame → flex classes', () => {

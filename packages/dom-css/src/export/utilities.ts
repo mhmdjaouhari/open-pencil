@@ -116,11 +116,32 @@ export function tidyUtilities(
   themeVariables: readonly string[]
 ): string[] {
   const theme = new Set(themeVariables)
-  return classes.flatMap((className) => {
+  const tidied = classes.flatMap((className) => {
     const [variants, utility] = splitVariants(className)
-    if (utility === 'box-border') return []
+    // Preflight's own: every element is border-box and a border is solid until told otherwise.
+    if (utility === 'box-border' || utility === 'border-solid') return []
     return [`${variants}${themeUtility(utility, theme)}`]
   })
+  return squares(tidied)
+}
+
+/** `w-7.5 h-7.5` as `size-7.5`, under the same variants. */
+function squares(classes: string[]): string[] {
+  const sizes = new Map<string, string>()
+  for (const className of classes) {
+    const [variants, utility] = splitVariants(className)
+    if (utility.startsWith('w-')) sizes.set(`${variants}w`, utility.slice(2))
+  }
+  const merged = new Set<string>()
+  const out = classes.flatMap((className) => {
+    const [variants, utility] = splitVariants(className)
+    if (!utility.startsWith('h-')) return [className]
+    const width = sizes.get(`${variants}w`)
+    if (width !== utility.slice(2)) return [className]
+    merged.add(`${variants}w-${width}`)
+    return [`${variants}size-${width}`]
+  })
+  return out.filter((className) => !merged.has(className))
 }
 
 /** Declarations without a `font-family` the page already sets, which the element inherits. */
