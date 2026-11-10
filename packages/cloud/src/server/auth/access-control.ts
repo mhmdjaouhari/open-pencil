@@ -3,7 +3,9 @@ import { createAccessControl } from 'better-auth/plugins/access'
 
 export const accessStatements = {
   workspace: ['read', 'update', 'delete', 'invite', 'manage-members'],
-  document: ['create', 'read', 'edit', 'share', 'delete']
+  document: ['create', 'read', 'edit', 'share', 'delete'],
+  /** A workspace's component libraries: using them, and publishing their revisions. */
+  library: ['read', 'publish']
 } as const
 
 type AccessStatements = typeof accessStatements
@@ -22,15 +24,18 @@ export const accessControl = createAccessControl(accessStatements)
 export const workspaceRoles = {
   admin: accessControl.newRole({
     workspace: ['read', 'update', 'delete', 'invite', 'manage-members'],
-    document: ['create', 'read', 'edit', 'share', 'delete']
+    document: ['create', 'read', 'edit', 'share', 'delete'],
+    library: ['read', 'publish']
   }),
   editor: accessControl.newRole({
     workspace: ['read'],
-    document: ['create', 'read', 'edit', 'share', 'delete']
+    document: ['create', 'read', 'edit', 'share', 'delete'],
+    library: ['read', 'publish']
   }),
   viewer: accessControl.newRole({
     workspace: ['read'],
-    document: ['read']
+    document: ['read'],
+    library: ['read']
   })
 } satisfies Record<WorkspaceRole, unknown>
 

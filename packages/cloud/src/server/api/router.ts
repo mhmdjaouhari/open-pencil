@@ -12,6 +12,11 @@ import {
   createDocumentVersionRoutes,
   type DocumentVersionService
 } from '#cloud/server/documents/versions'
+import {
+  createLibraryRoutes,
+  LibraryNotFoundError,
+  type LibraryService
+} from '#cloud/server/libraries'
 import type { EntitlementService } from '#cloud/server/policy'
 import { createPublicReportRoutes, type DocumentReportService } from '#cloud/server/reports'
 import { createServicesRoutes, type ServicesTokenService } from '#cloud/server/services'
@@ -42,6 +47,8 @@ export type CloudAPIServices = {
   servicesTokens?: ServicesTokenService
   workspaces: WorkspaceService
   workspaceMembers: WorkspaceMemberService
+  /** Workspaces' component libraries. */
+  libraries?: LibraryService
 }
 
 export function createPublicCloudAPIRouter(services: CloudAPIServices) {
@@ -116,6 +123,15 @@ export function createCloudAPIRouter(services: CloudAPIServices) {
           : undefined
       )
     )
+    .route('/workspaces', createLibraryRoutes(services.libraries ?? NO_LIBRARIES))
+}
+
+/** Libraries where a deployment has none: every request answers as for a missing workspace. */
+const NO_LIBRARIES: LibraryService = {
+  list: () => Promise.reject(new LibraryNotFoundError()),
+  get: () => Promise.reject(new LibraryNotFoundError()),
+  createUpload: () => Promise.reject(new LibraryNotFoundError()),
+  commit: () => Promise.reject(new LibraryNotFoundError())
 }
 
 export type CloudAPI = ReturnType<typeof createCloudAPIRouter>

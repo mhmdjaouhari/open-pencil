@@ -15,7 +15,7 @@ type ObjectFetch = (input: string, init: RequestInit) => Promise<Response>
 const IMAGE_DOWNLOAD_CONCURRENCY = 6
 
 /** An object's bytes from the store, checked against the size and checksum the server recorded. */
-async function fetchVerified(
+export async function fetchVerified(
   target: DocumentDownload['download'],
   expected: { byteSize: number; checksum: string },
   objectFetch: ObjectFetch,

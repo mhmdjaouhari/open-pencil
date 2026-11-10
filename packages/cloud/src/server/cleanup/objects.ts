@@ -30,6 +30,14 @@ export function unreferencedObject(expression: ExpressionBuilder<CloudDatabase, 
           .select('documentRoomSnapshot.documentId')
           .whereRef('documentRoomSnapshot.snapshotObjectId', '=', 'storageObject.id')
       )
+    ),
+    expression.not(
+      expression.exists(
+        expression
+          .selectFrom('workspaceLibraryObject')
+          .select('workspaceLibraryObject.path')
+          .whereRef('workspaceLibraryObject.storageObjectId', '=', 'storageObject.id')
+      )
     )
   ])
 }

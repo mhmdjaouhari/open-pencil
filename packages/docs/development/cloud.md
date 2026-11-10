@@ -103,6 +103,24 @@ keeps on its own, and versions someone named (`document_version`, one per revisi
   freed file's row stays until the object store deletes it, so a failed delete is retried. With
   the `revision_history` entitlement off, a workspace keeps 30 days of versions, as on a free plan.
 
+### Libraries
+
+A workspace keeps component libraries as the files the editor's library catalog reads and writes
+(`open-pencil/libraries/<library>/manifest.json` and its immutable revisions), so the Cloud storage
+provider serves libraries as a bucket does. `workspace_library_object` points each path at a
+stored file, whose id is the path's version. Every member may read them; editors and admins
+publish (`library` in `src/server/auth/access-control.ts`).
+
+- Files travel through presigned links, as documents do: a publisher asks for an upload, which
+  records its file before it is written, puts the bytes, and commits it to a path. The commit
+  checks the stored file against the declared checksum and the path against the version the write
+  names (`ifMatch`, or `ifNoneMatch: '*'` for a new path), so two publishers never overwrite each
+  other's manifest; a lost race answers `412 precondition_failed`.
+- An upload that never commits, and a file a path no longer points at, is unreferenced and left to
+  the object sweep; uploads expire before its grace period passes (`LIBRARY_UPLOAD_LIFETIME_MS`).
+- Library files count against the technical upload limit but not the workspace's storage quota.
+- Scripts publish with a bearer token from the device authorization flow, as the desktop app signs in.
+
 ## Authentication and authorization
 
 Better Auth owns users, sessions, social sign-in, email and password, passkeys, TOTP, and recovery

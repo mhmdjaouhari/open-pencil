@@ -45,6 +45,7 @@ import type { TransactionalEmailService } from '#cloud/server/email'
 import { cloudErrorHandler, type CloudErrorReporter } from '#cloud/server/errors'
 import { createInternalRoutes, createInternalService } from '#cloud/server/internal'
 import type { InvitationDelivery, InvitationOutbox } from '#cloud/server/invitations'
+import { createLibraryService } from '#cloud/server/libraries'
 import type { ObjectStore } from '#cloud/server/objects'
 import { createPictureRoutes, createUserPictures } from '#cloud/server/pictures'
 import {
@@ -209,6 +210,9 @@ export function createCloudApp(services: CloudServices) {
     onRestored: services.onDocumentRestored,
     onVersionsChanged: services.onDocumentVersionsChanged
   })
+  const libraries = createLibraryService(services.database, services.objects, {
+    technicalMaximumUploadBytes: services.config.technicalLimits.maximumUploadBytes
+  })
   const entitlements = createEntitlementService(
     services.database,
     policy,
@@ -311,6 +315,7 @@ export function createCloudApp(services: CloudServices) {
     reports,
     workspaces,
     workspaceMembers,
+    libraries,
     resolveSession
   })
   const publicCloudAPI = createPublicCloudAPIRouter({

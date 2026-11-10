@@ -132,6 +132,16 @@ export interface DocumentRevisionTable {
 }
 
 /** An image a workspace's documents use, stored once; see migration 023. */
+/** The file stored at one of a workspace's library paths (`open-pencil/libraries/…`). */
+export interface WorkspaceLibraryObjectTable {
+  workspaceId: string
+  path: string
+  /** The stored file, whose id is the path's version (its ETag). */
+  storageObjectId: string
+  updatedBy: string
+  updatedAt: TimestampColumn
+}
+
 export interface WorkspaceImageTable {
   workspaceId: string
   /** The SHA-256 of the bytes, which the object store verified. */
@@ -401,6 +411,7 @@ export interface CloudDatabase {
   documentRevision: DocumentRevisionTable
   revisionImage: RevisionImageTable
   workspaceImage: WorkspaceImageTable
+  workspaceLibraryObject: WorkspaceLibraryObjectTable
   documentVersion: DocumentVersionTable
   documentShare: DocumentShareTable
   documentGrant: DocumentGrantTable

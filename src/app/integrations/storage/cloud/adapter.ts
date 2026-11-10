@@ -11,6 +11,7 @@ import { storageFetch } from '../s3/fetch'
 import type { StorageAdapter, StorageProviderRuntime } from '../types'
 import { cloudChecksum, downloadCloudDocument, readCloudRevisionRange } from './download'
 import { splitCloudDocument, uploadCloudImages } from './images'
+import { cloudLibraryObjects } from './libraries'
 import { uploadCloudObject } from './upload'
 
 function revisionConflict(error: unknown): boolean {
@@ -195,6 +196,10 @@ export function createCloudStorageAdapter(
 
     async getUsage() {
       return (await client()).getUsage(workspaceId())
-    }
+    },
+
+    libraryObjects: cloudLibraryObjects(client, workspaceId, (input, init) =>
+      dependencies.objectFetch(input, init)
+    )
   }
 }

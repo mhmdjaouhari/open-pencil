@@ -2,7 +2,7 @@ import * as v from 'valibot'
 
 export const CLOUD_PROTOCOL_MAX_UPLOAD_BYTES = 1024 * 1024 * 1024
 
-const checksumSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9+/]{43}=$/))
+export const checksumSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9+/]{43}=$/))
 
 /** Whether a value is a SHA-256 checksum as the server names stored objects, base64 encoded. */
 export function isCloudChecksum(value: string): boolean {
@@ -27,7 +27,7 @@ export const CLOUD_API_MAX_BODY_BYTES = 8 * 1024 * 1024
 export const CLOUD_IMAGE_NAME_PATTERN = /^[A-Za-z0-9._-]{1,128}$/
 const imageNameSchema = v.pipe(v.string(), v.regex(CLOUD_IMAGE_NAME_PATTERN))
 
-const objectDownloadSchema = v.object({
+export const objectDownloadSchema = v.object({
   url: v.pipe(v.string(), v.url()),
   method: v.literal('GET'),
   headers: v.record(v.string(), v.string()),
