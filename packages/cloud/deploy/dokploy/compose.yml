@@ -71,6 +71,10 @@ services:
     command:
       - server
       - -dir=/data
+      # It is on two networks; by default it listens only on the first one's address, so Traefik,
+      # on dokploy-network, was refused. Its master, volume, and filer find each other locally.
+      - -ip=127.0.0.1
+      - -ip.bind=0.0.0.0
       - -s3
       - -s3.port=8333
       - -s3.config=/etc/seaweedfs/s3.json
