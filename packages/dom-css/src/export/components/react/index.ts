@@ -8,10 +8,12 @@ import { camelCase, upperFirst } from 'es-toolkit/string'
 import { es, jsx } from '@open-pencil/emit'
 import type { ShaderComponent } from '@open-pencil/scene-graph/shaders'
 
+import type { ConnectedComponent } from '../connect'
 import {
   FIELD_KINDS,
   type ComponentElement,
   type ComponentGenerator,
+  type ComponentGeneratorOptions,
   type GeneratedComponent,
   type ComponentModel,
   type ComponentNode,
@@ -514,17 +516,11 @@ function valueArg(
   return { valueArg: defaultOf(model), ...(kind === 'slider' ? { valueList: true } : {}) }
 }
 
-/**
- * A component as a React component on Radix UI: its parts as Radix primitives from the
- * `radix-ui` package, its variants' state styles in a CSS module, and props that extend the
- * Radix root's with its other variant properties.
- */
-export const reactComponent: ComponentGenerator = async (component, options = {}) => {
+/** What a component's markup is written with, before any of it is. */
+function markupUses(component: ComponentModel, options: ComponentGeneratorOptions): MarkupUses {
   const styling = options.styling ?? 'css'
-  const radix = RADIX[component.kind]
-  const stylesPath = `${component.name}.module.css`
   const classOf = componentClasses(component, styling, options)
-  const uses: MarkupUses = {
+  return {
     component,
     // Styled with Tailwind, a layer's utilities are written out; otherwise its module class.
     classOf: (className) =>
@@ -538,6 +534,46 @@ export const reactComponent: ComponentGenerator = async (component, options = {}
     shaders: new Set(),
     classNames: options.classNames
   }
+}
+
+/**
+ * How the code component a selected instance stands for is used (`connectedSelection`): the
+ * imports and the element, its slots' content written as the component's markup would be, as
+ * Code Connect shows an instance rather than a component drawing its layers.
+ */
+export function reactUsage(
+  component: ComponentModel,
+  connected: ConnectedComponent,
+  options: ComponentGeneratorOptions = {}
+): GeneratedComponent['files'][number] {
+  const uses = markupUses(component, options)
+  const body = element(connected, uses, 0)
+  const program = {
+    type: 'Program',
+    sourceType: 'module',
+    body: [
+      ...(uses.icons ? ICONIFY_IMPORT : []),
+      ...connectedImports(uses),
+      { type: 'ExpressionStatement', expression: body }
+    ]
+  }
+  return {
+    path: `${component.name}.tsx`,
+    content: `${jsx.printModule(program)}\n`,
+    layerIds: elementLayers(body, uses.layers)
+  }
+}
+
+/**
+ * A component as a React component on Radix UI: its parts as Radix primitives from the
+ * `radix-ui` package, its variants' state styles in a CSS module, and props that extend the
+ * Radix root's with its other variant properties.
+ */
+export const reactComponent: ComponentGenerator = async (component, options = {}) => {
+  const styling = options.styling ?? 'css'
+  const radix = RADIX[component.kind]
+  const stylesPath = `${component.name}.module.css`
+  const uses = markupUses(component, options)
   const body = element(component.tree, uses, 1)
   const imports = [
     ...(uses.icons ? ICONIFY_IMPORT : []),

@@ -12,8 +12,10 @@ import { extractImageAssets, type ExportHTMLFile } from '../bundle'
 import { serializedElements, serializeHTML } from '../html'
 import type { SceneGraphToDesignOptions } from '../projection'
 import { claimName, identifierName } from '../storybook/names'
+import { codeConventions } from './connect'
 import { componentModel, type ComponentGeneratorOptions, type GeneratedComponent } from './model'
-import { reactComponent } from './react'
+import { reactComponent, reactUsage } from './react'
+import { connectedSelection } from './usage'
 import { vueComponent } from './vue'
 
 /** The frameworks a layer can be generated as a component for. */
@@ -39,9 +41,13 @@ export async function layerComponents(
   options: Pick<SceneGraphToDesignOptions, 'vectorElement'> & ComponentGeneratorOptions = {}
 ): Promise<LayerComponent[]> {
   const generate = framework === 'vue' ? vueComponent : reactComponent
+  // What the options leave unsaid, the code the document's components are connected to says.
+  const conventions = codeConventions(graph)
+  const classNames = options.classNames ?? conventions?.classNames
+  const inheritedFontFamily = options.inheritedFontFamily ?? conventions?.inheritedFontFamily
   // The document's tokens are the code's theme, as the stylesheet the export writes declares them.
   const tokens = new DesignTokens(graph)
-  const modeClasses = tokens.modeClasses(options.modeVariants ?? {})
+  const modeClasses = tokens.modeClasses(options.modeVariants ?? conventions?.modeVariants ?? {})
   // A token written as a class per mode is those tokens' utilities, not one of its own.
   const themeVariables = uniq([
     ...tokens.themeVariables(),
@@ -60,13 +66,20 @@ export async function layerComponents(
       codeConnect: framework === 'react'
     })
     if (!model) continue
-    const { files } = await generate(model, {
+    const generatorOptions = {
       styling: options.styling,
       themeVariables,
-      inheritedFontFamily: options.inheritedFontFamily,
+      inheritedFontFamily,
       modeClasses,
-      classNames: options.classNames
-    })
+      classNames
+    }
+    // An instance of a code component is shown as that component used, not redrawn.
+    const connected = framework === 'react' ? connectedSelection(graph, layer, model.tree) : null
+    if (connected) {
+      components.push({ name, layerId, files: [reactUsage(model, connected, generatorOptions)] })
+      continue
+    }
+    const { files } = await generate(model, generatorOptions)
     components.push({ name, layerId, files })
   }
   return components

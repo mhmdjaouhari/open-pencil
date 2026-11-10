@@ -13,6 +13,8 @@ import type { ComponentNode } from './model'
 export interface ConnectedSlotPath {
   hole: string
   path: string
+  /** The slot frame's own layer. */
+  frameId: string
 }
 
 /**
@@ -69,6 +71,21 @@ export function holeOf(node: unknown): string | undefined {
 function codeConnectOf(graph: SceneGraph, main: SceneNode): CodeConnect | undefined {
   const owner = behaviourOwner(graph, main) ?? main
   return readPluginData(owner.pluginData, OPEN_PENCIL_PLUGIN_DATA.codeConnect)
+}
+
+/** How the code a document's components are connected to writes markup. */
+export type CodeConventions = NonNullable<CodeConnect['conventions']>
+
+/**
+ * The conventions the document's code components declare, from the first that declares any:
+ * a library's components carry their code's into every document they are used in.
+ */
+export function codeConventions(graph: SceneGraph): CodeConventions | undefined {
+  for (const node of graph.getAllNodes()) {
+    const connect = readPluginData(node.pluginData, OPEN_PENCIL_PLUGIN_DATA.codeConnect)
+    if (connect?.conventions) return connect.conventions
+  }
+  return undefined
 }
 
 type HoleValue = string | boolean
@@ -207,7 +224,13 @@ export function connectedLayer(
   const slotPaths = instanceSlotFrames(graph, instance).flatMap((frame) => {
     const name = slotName(slotPropertyId(frame) ?? '')
     return name
-      ? [{ hole: holeName(name), path: `${path}/${layerPath(graph, instance.id, frame.id)}` }]
+      ? [
+          {
+            hole: holeName(name),
+            path: `${path}/${layerPath(graph, instance.id, frame.id)}`,
+            frameId: frame.id
+          }
+        ]
       : []
   })
   const values = holeValues(graph, instance, main, shownText)
