@@ -155,7 +155,7 @@ function characterCSS(style: CharacterStyle, decorated: boolean): DesignStyleDec
     'font-size': px(style.fontSize),
     'font-weight': String(style.fontWeight),
     'font-style': style.italic ? 'italic' : 'normal',
-    'letter-spacing': letterSpacingToCSS(style.letterSpacing),
+    'letter-spacing': letterSpacingToCSS(style.letterSpacing, style.fontSize),
     'line-height': style.lineHeight === null ? 'normal' : lineHeightToCSS(style.lineHeight),
     'text-transform': textCaseToCSS(style.textCase) ?? 'none',
     ...(decorated ? decorationCSS(style) : {})

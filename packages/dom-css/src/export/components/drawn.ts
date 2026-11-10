@@ -32,8 +32,27 @@ const LAYOUT = [
   'counterAxisAlign'
 ] as const satisfies readonly (keyof SceneNode)[]
 
+/**
+ * Values equal but for float rounding: a bound paint's colour is its variable's, which a copy
+ * refreshes in double precision while a saved component keeps single (`COLOR_TOLERANCE` in
+ * `@open-pencil/scene-graph/variables/paints`), so a mode switch there and back changes no look.
+ */
+function nearlyEqual(a: unknown, b: unknown): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) <= 1e-5
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((value, index) => nearlyEqual(value, b[index]))
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const keys = Object.keys(a)
+    return (
+      keys.length === Object.keys(b).length &&
+      keys.every((key) => nearlyEqual(Reflect.get(a, key), Reflect.get(b, key)))
+    )
+  }
+  return isEqual(a, b)
+}
+
 const same = (a: SceneNode, b: SceneNode, fields: readonly (keyof SceneNode)[]) =>
-  fields.every((field) => isEqual(a[field], b[field]))
+  fields.every((field) => nearlyEqual(a[field], b[field]))
 
 const bound = (node: SceneNode, field: ComponentPropertyReferenceField) =>
   node.componentPropertyReferences.some((reference) => reference.field === field)

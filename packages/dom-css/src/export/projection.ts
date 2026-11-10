@@ -90,8 +90,9 @@ function hugs(node: SceneNode, axis: 'width' | 'height'): boolean {
       node.textAutoResize === 'WIDTH_AND_HEIGHT' ||
       (axis === 'height' && node.textAutoResize === 'HEIGHT')
     )
-  if (node.layoutMode !== 'HORIZONTAL' && node.layoutMode !== 'VERTICAL') return false
-  const primary = (node.layoutMode === 'HORIZONTAL') === (axis === 'width')
+  if (node.layoutMode === 'NONE') return false
+  // A grid lays out as a row: width is its primary axis, height its counter axis.
+  const primary = (node.layoutMode !== 'VERTICAL') === (axis === 'width')
   return (primary ? node.primaryAxisSizing : node.counterAxisSizing) === 'HUG'
 }
 
@@ -400,7 +401,10 @@ function styleFromTextNode(
     style['line-height'] = css('lineHeight', lineHeightToCSS(node.lineHeight))
   }
   if (node.letterSpacing.value !== 0) {
-    style['letter-spacing'] = css('letterSpacing', letterSpacingToCSS(node.letterSpacing))
+    style['letter-spacing'] = css(
+      'letterSpacing',
+      letterSpacingToCSS(node.letterSpacing, node.fontSize)
+    )
   }
   if (node.textAlignHorizontal !== 'LEFT')
     style['text-align'] = node.textAlignHorizontal.toLowerCase()

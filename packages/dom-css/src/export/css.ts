@@ -152,9 +152,21 @@ export function lineHeightToCSS(length: TextLength): string {
   return length.unit === 'PIXELS' ? `${length.value}px` : String(length.value / 100)
 }
 
-/** A letter spacing as CSS writes it: a percent of the font size in `em`. */
-export function letterSpacingToCSS(length: TextLength): string {
-  return length.unit === 'PIXELS' ? `${length.value}px` : `${length.value / 100}em`
+/**
+ * A letter spacing as CSS writes it: a percent of the font size in `em`, and so is a pixel spacing
+ * that is a round share of the `fontSize` it spaces (`-0.5px` at 20px is `tracking-tight`'s
+ * `-0.025em`), as an imported page's `em` spacing comes back in pixels.
+ */
+export function letterSpacingToCSS(length: TextLength, fontSize?: number): string {
+  if (length.unit !== 'PIXELS') return `${length.value / 100}em`
+  const ems = fontSize ? length.value / fontSize : Number.NaN
+  const share = Math.round(ems * 1000) / 1000
+  return Number.isFinite(ems) &&
+    share !== 0 &&
+    Math.abs(ems - share) < 1e-6 &&
+    Math.abs(share * 1000) % 5 === 0
+    ? `${share}em`
+    : `${length.value}px`
 }
 
 /** A share of the layer's box as a CSS percentage. */
