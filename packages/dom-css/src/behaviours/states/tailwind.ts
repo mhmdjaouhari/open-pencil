@@ -1,5 +1,5 @@
 import { splitWhitespace } from '#dom-css/export/html'
-import { tidyUtilities, withoutInheritedFont } from '#dom-css/export/utilities'
+import { tidyUtilities, withoutInheritedFont, type ModeClasses } from '#dom-css/export/utilities'
 import type { DesignDocument, DesignNode, DesignStyleDeclaration } from '#dom-css/types'
 import { compact } from 'es-toolkit/array'
 import { twirl } from 'twirlwind'
@@ -12,6 +12,8 @@ export interface StateTailwindOptions {
   themeVariables?: readonly string[]
   /** The font family the page sets, which elements inherit rather than restate. */
   inheritedFontFamily?: string
+  /** Tokens that are another in each mode, written as one class per mode (`DesignTokens.modeClasses`). */
+  modeClasses?: ModeClasses
 }
 
 /** A value inside a variant: bare when it is a plain word, else quoted with spaces as `_`. */
@@ -45,7 +47,9 @@ function utilities(style: DesignStyleDeclaration, options: StateTailwindOptions)
     .map(([property, value]) => `${property}: ${value}`)
     .join('; ')
   const variables = options.themeVariables ?? []
-  return css ? tidyUtilities(splitWhitespace(twirl(css, { theme: { variables } })), variables) : []
+  if (!css) return []
+  const classes = splitWhitespace(twirl(css, { theme: { variables } }))
+  return tidyUtilities(classes, variables, options.modeClasses)
 }
 
 /** What each element's utilities are written against. */

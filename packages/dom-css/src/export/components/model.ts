@@ -26,6 +26,7 @@ import { slotPropertyId } from '@open-pencil/scene-graph/slots'
 
 import type { SceneGraphToDesignOptions } from '../projection'
 import { claimName, identifierName } from '../storybook/names'
+import type { ModeClasses } from '../utilities'
 import type { ConnectedComponent } from './connect'
 import {
   blockRoot,
@@ -241,6 +242,13 @@ export interface ComponentGeneratorOptions {
   themeVariables?: readonly string[]
   /** The font family the code's page sets, which Tailwind styling leaves elements to inherit. */
   inheritedFontFamily?: string
+  /**
+   * The Tailwind variant each mode is under, by mode name (`{ Dark: 'dark' }`): a token that is
+   * another in each mode is written as one class per mode (`text-background dark:text-foreground`).
+   */
+  modeVariants?: Readonly<Record<string, string>>
+  /** Resolved for the generators from `modeVariants` by `layerComponents`. */
+  modeClasses?: ModeClasses
   /**
    * The function the code merges class names with, such as `cn` from `@/lib/utils`: an element
    * with more than one source of classes calls it rather than joining them in place.

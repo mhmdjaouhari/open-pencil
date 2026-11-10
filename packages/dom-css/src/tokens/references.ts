@@ -1,4 +1,4 @@
-import { uniq } from 'es-toolkit/array'
+import { compact, uniq } from 'es-toolkit/array'
 
 import type { Effect, SceneGraph, SceneNode, Variable } from '@open-pencil/scene-graph'
 import type { Color } from '@open-pencil/scene-graph/primitives'
@@ -225,6 +225,59 @@ export class DesignTokens {
         if (typeof value === 'object' && 'aliasId' in value) pending.push(value.aliasId)
     }
     return ids
+  }
+
+  /**
+   * The tokens a colour token aliases, mode by mode, when it is a different token in each (`text`
+   * that is `background` in Light and `foreground` in Dark), its collection's default mode first.
+   */
+  #modeTargets(variable: Variable): { mode: string; target: Variable }[] | undefined {
+    if (variable.type !== 'COLOR') return undefined
+    const collection = this.#graph.variableCollections.get(variable.collectionId)
+    if (!collection || collection.modes.length < 2) return undefined
+    const modes = [...collection.modes].sort(
+      (a, b) =>
+        Number(b.modeId === collection.defaultModeId) -
+        Number(a.modeId === collection.defaultModeId)
+    )
+    const targets = modes.map(({ modeId, name }) => {
+      const value = variable.valuesByMode[modeId]
+      const target =
+        value && typeof value === 'object' && 'aliasId' in value
+          ? this.#graph.variables.get(value.aliasId)
+          : undefined
+      return target && { mode: name, target }
+    })
+    const found = compact(targets)
+    if (found.length !== targets.length) return undefined
+    return new Set(found.map(({ target }) => target.id)).size > 1 ? found : undefined
+  }
+
+  /**
+   * For Tailwind: each custom property of a token that is another token in each mode, the CSS of
+   * the token it is in each mode, under the variant `modeVariants` gives that mode by name
+   * (`{ Dark: 'dark' }`), unprefixed in the default mode. A mode with no variant leaves the token
+   * out, as no class could say it.
+   */
+  modeClasses(
+    modeVariants: Readonly<Record<string, string>>
+  ): Map<string, { variant: string; css: string }[]> {
+    const classes = new Map<string, { variant: string; css: string }[]>()
+    for (const [id, name] of this.names) {
+      const variable = this.#graph.variables.get(id)
+      const targets = variable && this.#modeTargets(variable)
+      if (!targets) continue
+      const entries = targets.map(({ mode, target }, index) => {
+        const named = index === 0 || Object.hasOwn(modeVariants, mode)
+        const variant = index === 0 ? '' : (modeVariants[mode] ?? '')
+        const targetName = this.names.get(target.id)
+        const css = codeExpression(target) ?? `var(--${targetName ?? target.id})`
+        return !named || !targetName ? undefined : { variant, css }
+      })
+      const complete = compact(entries)
+      if (complete.length === entries.length) classes.set(`--${name}`, complete)
+    }
+    return classes
   }
 
   /**

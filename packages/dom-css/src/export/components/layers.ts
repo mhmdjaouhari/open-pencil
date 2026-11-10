@@ -40,10 +40,13 @@ export async function layerComponents(
 ): Promise<LayerComponent[]> {
   const generate = framework === 'vue' ? vueComponent : reactComponent
   // The document's tokens are the code's theme, as the stylesheet the export writes declares them.
+  const tokens = new DesignTokens(graph)
+  const modeClasses = tokens.modeClasses(options.modeVariants ?? {})
+  // A token written as a class per mode is those tokens' utilities, not one of its own.
   const themeVariables = uniq([
-    ...new DesignTokens(graph).themeVariables(),
+    ...tokens.themeVariables(),
     ...(options.themeVariables ?? [])
-  ])
+  ]).filter((variable) => !modeClasses.has(variable))
   const taken = new Set<string>()
   const components: LayerComponent[] = []
   for (const layerId of layerIds) {
@@ -61,6 +64,7 @@ export async function layerComponents(
       styling: options.styling,
       themeVariables,
       inheritedFontFamily: options.inheritedFontFamily,
+      modeClasses,
       classNames: options.classNames
     })
     components.push({ name, layerId, files })

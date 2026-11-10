@@ -113,16 +113,37 @@ function themeUtility(utility: string, theme: ReadonlySet<string>): string {
  */
 export function tidyUtilities(
   classes: readonly string[],
-  themeVariables: readonly string[]
+  themeVariables: readonly string[],
+  modeClasses: ModeClasses = new Map()
 ): string[] {
   const theme = new Set(themeVariables)
   const tidied = classes.flatMap((className) => {
     const [variants, utility] = splitVariants(className)
     // Preflight's own: every element is border-box and a border is solid until told otherwise.
     if (utility === 'box-border' || utility === 'border-solid') return []
+    const perMode = modeUtilities(utility, modeClasses)
+    if (perMode) {
+      const name = utility.slice(0, utility.indexOf('-('))
+      return perMode.map(({ variant, css }) => {
+        const mode = variant ? `${variant}:` : ''
+        return `${variants}${mode}${themeUtility(`${name}-[${css.replaceAll(' ', '_')}]`, theme)}`
+      })
+    }
     return [`${variants}${themeUtility(utility, theme)}`]
   })
   return squares(tidied)
+}
+
+/** The CSS of a token that is another in each mode, by its custom property (`DesignTokens.modeClasses`). */
+export type ModeClasses = ReadonlyMap<string, readonly { variant: string; css: string }[]>
+
+/**
+ * `text-(--color-x)` for a token that is another token in each mode: those tokens, one class per
+ * mode under its variant (`text-background dark:text-foreground`).
+ */
+function modeUtilities(utility: string, modeClasses: ModeClasses) {
+  const match = /^[a-z-]+-\((--[\w-]+)\)$/.exec(utility)
+  return match?.[1] ? modeClasses.get(match[1]) : undefined
 }
 
 /** `w-7.5 h-7.5` as `size-7.5`, under the same variants. */
