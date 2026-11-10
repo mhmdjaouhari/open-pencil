@@ -534,6 +534,12 @@ function sceneNodeToDesignNode(
   }
 
   const style = styleFromSceneNode(node, parent, css)
+  // An auto layout frame that places a layer absolutely is that layer's containing block.
+  if (
+    !isPositioned(style.position) &&
+    graph.getChildren(node.id).some((child) => child.layoutPositioning === 'ABSOLUTE')
+  )
+    style.position = 'relative'
   const shader = layerShader(graph, node)
   if (shader) addShaderLayerStyle(style)
   return {
