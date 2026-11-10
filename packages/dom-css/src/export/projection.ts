@@ -116,9 +116,8 @@ function addSize(
 }
 
 /**
- * Whether a layer fills an axis by stretching, which a fixed CSS size would prevent: across a
- * flex parent, or either axis of a grid cell. Along a flex parent, fill is `flex-grow`, and the
- * size stays as its basis.
+ * Whether a layer fills an axis, which a fixed CSS size would prevent: across a flex parent or
+ * in a grid cell by stretching, and along a flex parent as `flex: 1 1 0%` (`fillsAlong`).
  */
 function stretches(
   node: SceneNode,
@@ -126,10 +125,18 @@ function stretches(
   axis: 'width' | 'height'
 ): boolean {
   const sizing = layoutSizingInParent(parent, node, axis === 'width' ? 'HORIZONTAL' : 'VERTICAL')
-  if (sizing !== 'FILL' || !parent) return false
-  if (parent.layoutMode === 'GRID') return true
-  const mainAxis = parent.layoutMode === 'HORIZONTAL' ? 'width' : 'height'
-  return axis !== mainAxis
+  return sizing === 'FILL' && !!parent
+}
+
+/**
+ * Whether a layer fills its flex parent along the parent's axis. Auto layout shares the room
+ * equally among the layers that fill it, whatever they hold, as `flex: 1 1 0%` does.
+ */
+function fillsAlong(node: SceneNode, parent: SceneNode | undefined): boolean {
+  if (!parent || (parent.layoutMode !== 'HORIZONTAL' && parent.layoutMode !== 'VERTICAL'))
+    return false
+  if (node.layoutPositioning === 'ABSOLUTE') return false
+  return layoutSizingInParent(parent, node, parent.layoutMode) === 'FILL'
 }
 
 function addSizeConstraints(style: DesignStyleDeclaration, node: SceneNode, css: FieldCSS): void {
@@ -267,7 +274,9 @@ function addBackground(style: DesignStyleDeclaration, node: SceneNode, css: Fiel
       else layers.unshift({ image: `linear-gradient(${value}, ${value})`, blend })
       return
     }
-    const gradient = gradientToCSS(fill, node.width, node.height)
+    const gradient = gradientToCSS(fill, node.width, node.height, (stop, literal) =>
+      css(`fills/${index}/gradientStops/${stop}/color`, literal)
+    )
     if (gradient) layers.unshift({ image: gradient, blend })
     // A paint below every colour, such as an image, leaves no colour for the bottom.
     else if (color === undefined) color = ''
@@ -305,7 +314,11 @@ function addLayoutChild(
   parent: SceneNode | undefined
 ): void {
   if (parent?.layoutMode === 'GRID') addGridPlacement(style, node)
-  else if (parent && parent.layoutMode !== 'NONE' && node.layoutGrow > 0) style['flex-grow'] = '1'
+  else if (fillsAlong(node, parent)) {
+    style.flex = '1 1 0%'
+    // A flex item's minimum is its content's; a layer that fills shrinks below it, as in auto layout.
+    style[parent?.layoutMode === 'HORIZONTAL' ? 'min-width' : 'min-height'] ??= '0'
+  }
   if (node.rotation !== 0) style.transform = `rotate(${node.rotation}deg)`
 }
 

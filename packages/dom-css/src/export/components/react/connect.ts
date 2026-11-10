@@ -2,7 +2,7 @@ import { es, jsx } from '@open-pencil/emit'
 
 import { holeOf, indentElement, type ConnectedComponent } from '../connect'
 import type { ComponentNode } from '../model'
-import { classValue, drawing, type MarkupUses } from './shared'
+import { classValue, drawing, mergedClasses, type MarkupUses } from './shared'
 
 /** Writes a node of a component's tree as JSX at a nesting depth. */
 type Markup = (node: ComponentNode, uses: MarkupUses, depth: number) => es.SyntaxNode
@@ -46,33 +46,35 @@ function filledSlots(
   }
 }
 
-const JOINED_CLASSES = es.parseExpression("[$own, $placed].join(' ')")
-
 /** The template's own `className` value as an expression: a string, or what its braces hold. */
 function classExpression(value: es.SyntaxNode | undefined): es.SyntaxNode | undefined {
   if (value?.type === 'Literal') return value
   return value?.type === 'JSXExpressionContainer' ? es.child(value, 'expression') : undefined
 }
 
-/** Two class values as one: a string when both are, an expression joining them otherwise. */
-function joinedClasses(own: es.SyntaxNode, placed: es.SyntaxNode): es.SyntaxNode {
+/** Two class values as one: a string when both are, merged as the code merges them otherwise. */
+function joinedClasses(own: es.SyntaxNode, placed: es.SyntaxNode, uses: MarkupUses): es.SyntaxNode {
   if (own.type === 'Literal' && placed.type === 'Literal')
     return es.string(`${String(own.value)} ${String(placed.value)}`)
-  return es.fill(JOINED_CLASSES, { $own: own, $placed: placed })
+  return mergedClasses([own, placed], uses)
 }
 
 /**
  * The parent's placement as the element's `className`, joined to the class the template
  * already gives it (a placeholder's size), since an element takes one `className`.
  */
-function withPlacement(node: es.SyntaxNode, placed: es.SyntaxNode): es.SyntaxNode {
+function withPlacement(
+  node: es.SyntaxNode,
+  placed: es.SyntaxNode,
+  uses: MarkupUses
+): es.SyntaxNode {
   const opening = es.child(node, 'openingElement')
   if (!opening) return node
   const attributes = es.children(opening, 'attributes')
   const isClassName = (attribute: es.SyntaxNode) =>
     es.child(attribute, 'name')?.name === 'className'
   const own = classExpression(es.child(attributes.find(isClassName), 'value'))
-  const value = own ? joinedClasses(own, placed) : placed
+  const value = own ? joinedClasses(own, placed, uses) : placed
   return {
     ...node,
     openingElement: {
@@ -109,7 +111,9 @@ export function connectedElement(
   const filled = indentElement(filledSlots(node.element, slots), depth)
   const placement = uses.classOf(node.className)
   const placed =
-    placement.type === 'Literal' && !placement.value ? filled : withPlacement(filled, placement)
+    placement.type === 'Literal' && !placement.value
+      ? filled
+      : withPlacement(filled, placement, uses)
   return drawing(placed, node.layerId, uses)
 }
 

@@ -503,7 +503,7 @@ export const vueComponent: ComponentGenerator = async (component, options = {}) 
   ])
   const uses: TemplateUses = {
     component,
-    classOf: componentClasses(component, styling),
+    classOf: componentClasses(component, styling, options),
     layers: new WeakMap(),
     kind: component.kind,
     sliderValues:

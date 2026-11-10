@@ -2,8 +2,9 @@ import { stateStylesToCSS } from '#dom-css/behaviours/states/css'
 import { restLayerOf, stateStyles } from '#dom-css/behaviours/states/model'
 import { stateStylesToTailwind } from '#dom-css/behaviours/states/tailwind'
 import type { StateElement, StateNode, StateStyles } from '#dom-css/behaviours/states/types'
+import { DesignTokens } from '#dom-css/tokens/references'
 import type { DesignDocument, DesignElement, DesignNode } from '#dom-css/types'
-import { zip } from 'es-toolkit/array'
+import { uniq, zip } from 'es-toolkit/array'
 
 import type { SceneGraph } from '@open-pencil/scene-graph'
 
@@ -38,6 +39,11 @@ export async function layerComponents(
   options: Pick<SceneGraphToDesignOptions, 'vectorElement'> & ComponentGeneratorOptions = {}
 ): Promise<LayerComponent[]> {
   const generate = framework === 'vue' ? vueComponent : reactComponent
+  // The document's tokens are the code's theme, as the stylesheet the export writes declares them.
+  const themeVariables = uniq([
+    ...new DesignTokens(graph).themeVariables(),
+    ...(options.themeVariables ?? [])
+  ])
   const taken = new Set<string>()
   const components: LayerComponent[] = []
   for (const layerId of layerIds) {
@@ -51,7 +57,12 @@ export async function layerComponents(
       codeConnect: framework === 'react'
     })
     if (!model) continue
-    const { files } = await generate(model, { styling: options.styling })
+    const { files } = await generate(model, {
+      styling: options.styling,
+      themeVariables,
+      inheritedFontFamily: options.inheritedFontFamily,
+      classNames: options.classNames
+    })
     components.push({ name, layerId, files })
   }
   return components

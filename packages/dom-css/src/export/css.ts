@@ -1,8 +1,10 @@
+import { compact } from 'es-toolkit/array'
+
 import type { Effect, Fill, SceneNode, Stroke, TextLength } from '@open-pencil/scene-graph'
 import { colorToCSS, colorToHex } from '@open-pencil/scene-graph/color'
 import { blurSigma } from '@open-pencil/scene-graph/geometry'
 import { gradientPoint } from '@open-pencil/scene-graph/gradient'
-import type { Color } from '@open-pencil/scene-graph/primitives'
+import type { Color, Vector } from '@open-pencil/scene-graph/primitives'
 
 import type { DesignStyleDeclaration } from '../types'
 
@@ -160,14 +162,50 @@ function percent(value: number): string {
   return `${Number((value * 100).toFixed(3))}%`
 }
 
-/** The stops, each at `place(position)`, its own position unless the gradient line differs. */
-function gradientStopsCSS(fill: Fill, place: (position: number) => number = (p) => p): string {
-  return (fill.gradientStops ?? [])
-    .map(
-      (stop) =>
-        `${cssColor({ ...stop.color, a: stop.color.a * fill.opacity })} ${percent(place(stop.position))}`
-    )
+/** A stop's colour as CSS writes it, given its literal colour and its index: a token, or that. */
+export type StopColorCSS = (stop: number, literal: string) => string
+
+/**
+ * The stops, each at `place(position)`, its own position unless the gradient line differs.
+ * Stops spread evenly from end to end, as most are, leave their positions to CSS, which spreads
+ * them so; then `bg-linear-to-tl from-… via-… to-…` says it.
+ */
+function gradientStopsCSS(
+  fill: Fill,
+  place: (position: number) => number = (p) => p,
+  color: StopColorCSS = (_, literal) => literal
+): string {
+  const stops = fill.gradientStops ?? []
+  const positions = stops.map((stop) => place(stop.position))
+  const even =
+    stops.length > 1 &&
+    positions.every((position, index) => Math.abs(position - index / (stops.length - 1)) < 0.001)
+  return stops
+    .map((stop, index) => {
+      const value = color(index, cssColor({ ...stop.color, a: stop.color.a * fill.opacity }))
+      return even ? value : `${value} ${percent(positions[index] ?? 0)}`
+    })
     .join(', ')
+}
+
+const SIDES = { x: ['left', '', 'right'], y: ['top', '', 'bottom'] } as const
+
+/** Where a point lies along an axis of the box: its start (0), middle (1), or end (2), or between. */
+function edge(value: number): number {
+  if (value < 0.001) return 0
+  if (value > 0.999) return 2
+  return Math.abs(value - 0.5) < 0.001 ? 1 : -1
+}
+
+/**
+ * `to top left`, `to right`, …: the direction a linear gradient runs in when it starts on one
+ * side or corner of its box and ends on the opposite one, as CSS's keywords run.
+ */
+function keywordDirection(start: Vector, end: Vector): string | undefined {
+  const [sx, sy, ex, ey] = [edge(start.x), edge(start.y), edge(end.x), edge(end.y)]
+  if ([sx, sy, ex, ey].includes(-1) || sx + ex !== 2 || sy + ey !== 2) return undefined
+  if (sx === 1 && sy === 1) return undefined
+  return `to ${compact([SIDES.y[ey], SIDES.x[ex]]).join(' ')}`
 }
 
 /**
@@ -211,12 +249,23 @@ function gradientAngle(fill: Fill, width: number, height: number): number {
 }
 
 /** A gradient fill as a CSS image over a `width` by `height` box, or undefined for a diamond. */
-export function gradientToCSS(fill: Fill, width: number, height: number): string | undefined {
+export function gradientToCSS(
+  fill: Fill,
+  width: number,
+  height: number,
+  color?: StopColorCSS
+): string | undefined {
   const t = fill.gradientTransform ?? { m00: 1, m01: 0, m02: 0, m10: 0, m11: 1, m12: 0 }
   const center = gradientPoint(t, { x: 0.5, y: 0.5 })
   if (fill.type === 'GRADIENT_LINEAR') {
+    // From side to side or corner to corner, CSS's line runs where the handles do, whatever the box.
+    const direction = fill.gradientTransform
+      ? keywordDirection(gradientPoint(t, { x: 0, y: 0.5 }), gradientPoint(t, { x: 1, y: 0.5 }))
+      : 'to right'
+    if (direction)
+      return `linear-gradient(${direction}, ${gradientStopsCSS(fill, undefined, color)})`
     const angle = gradientAngle(fill, width, height)
-    const stops = gradientStopsCSS(fill, cssLinePosition(fill, width, height, angle))
+    const stops = gradientStopsCSS(fill, cssLinePosition(fill, width, height, angle), color)
     return `linear-gradient(${angle}deg, ${stops})`
   }
   if (fill.type === 'GRADIENT_RADIAL') {
@@ -225,12 +274,12 @@ export function gradientToCSS(fill: Fill, width: number, height: number): string
     const rx = Math.hypot(right.x - center.x, right.y - center.y)
     const ry = Math.hypot(bottom.x - center.x, bottom.y - center.y)
     const shape = `${percent(rx)} ${percent(ry)} at ${percent(center.x)} ${percent(center.y)}`
-    return `radial-gradient(${shape}, ${gradientStopsCSS(fill)})`
+    return `radial-gradient(${shape}, ${gradientStopsCSS(fill, undefined, color)})`
   }
   if (fill.type === 'GRADIENT_ANGULAR') {
     const from = gradientAngle(fill, width, height)
     const at = `${percent(center.x)} ${percent(center.y)}`
-    return `conic-gradient(from ${from}deg at ${at}, ${gradientStopsCSS(fill)})`
+    return `conic-gradient(from ${from}deg at ${at}, ${gradientStopsCSS(fill, undefined, color)})`
   }
   return undefined
 }

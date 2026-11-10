@@ -1,8 +1,14 @@
+import { uniq } from 'es-toolkit/array'
+
 import type { Effect, SceneGraph, SceneNode, Variable } from '@open-pencil/scene-graph'
 import type { Color } from '@open-pencil/scene-graph/primitives'
-import { effectBindingTarget, type EffectBindingProperty } from '@open-pencil/scene-graph/variables'
+import {
+  effectBindingTarget,
+  gradientStopBindingTarget,
+  type EffectBindingProperty
+} from '@open-pencil/scene-graph/variables'
 
-import { collectionVariables, variableCSSNames, variableNamespace } from './names'
+import { collectionVariables, explicitCSSName, variableCSSNames, variableNamespace } from './names'
 import { modeAttribute } from './stylesheet'
 import { variableUnit } from './values'
 
@@ -130,7 +136,12 @@ export class DesignTokens {
     return { attrs, modes }
   }
 
-  /** `var(--name)` for a bound field, or `undefined` where the literal value must stay. */
+  /**
+   * `var(--name)` for a bound field, or `undefined` where the literal value must stay. A colour
+   * whose `codeSyntax.WEB` is a CSS expression rather than a variable, such as a theme colour at
+   * an alpha (`color-mix(in oklab, var(--color-primary) 10%, transparent)`), is that expression:
+   * it is how the code writes the token, and the code's stylesheet declares what it names.
+   */
   reference(node: SceneNode, field: string, modes: CSSModes): string | undefined {
     const variableId = node.boundVariables[field]
     const variable = variableId ? this.#graph.variables.get(variableId) : undefined
@@ -138,6 +149,8 @@ export class DesignTokens {
     if (!variable || !name) return undefined
     const chain = this.#chain(node, variable, modes)
     if (!chain || !this.#drawsResolved(node, field, chain)) return undefined
+    const expression = codeExpression(variable)
+    if (expression) return expression
     for (const id of chain.ids) this.used.add(id)
     return `var(--${name})`
   }
@@ -184,6 +197,7 @@ export class DesignTokens {
   #drawsResolved(node: SceneNode, field: string, chain: TokenChain): boolean {
     if (effectBindingTarget(field)) return this.#drawsEffect(node, field, chain)
     const { value, end, expression } = chain
+    if (gradientStopBindingTarget(field)) return drawsStop(node, field, value)
     if (field.endsWith('/color')) {
       const paint = boundPaint(node, field)
       if (!paint?.visible || paint.type !== 'SOLID' || !isColor(value)) return false
@@ -213,11 +227,41 @@ export class DesignTokens {
     return ids
   }
 
-  /** Custom properties the Tailwind stylesheet declares in `@theme`, which name utilities. */
+  /**
+   * Custom properties the Tailwind stylesheet declares in `@theme`, which name utilities. A token
+   * the code writes as an expression names none of its own, but the variables in it do.
+   */
   themeVariables(): string[] {
-    return [...this.names].flatMap(([id, name]) => {
-      const variable = this.#graph.variables.get(id)
-      return variable && variableNamespace(variable) !== undefined ? [`--${name}`] : []
-    })
+    return uniq(
+      [...this.names].flatMap(([id, name]) => {
+        const variable = this.#graph.variables.get(id)
+        if (!variable || variableNamespace(variable) === undefined) return []
+        const expression = codeExpression(variable)
+        if (!expression) return [`--${name}`]
+        // `color-mix(in oklab, var(--color-blue-500) 10%, transparent)` is the theme's blue-500.
+        return [...expression.matchAll(/var\((--color-[\w-]+)\)/g)].flatMap(([, used]) =>
+          used ? [used] : []
+        )
+      })
+    )
   }
+}
+
+/**
+ * A colour token's `codeSyntax.WEB` when it is a CSS expression rather than one variable's name,
+ * such as `color-mix(in oklch, var(--primary), white 20%)`; the code writes the token so.
+ */
+function codeExpression(variable: Variable): string | undefined {
+  const web = variable.codeSyntax?.WEB?.trim()
+  if (variable.type !== 'COLOR' || !web || explicitCSSName(variable)) return undefined
+  return web.includes('(') ? web : undefined
+}
+
+/** Whether a bound gradient stop draws the colour its token gives, in a paint at full opacity. */
+function drawsStop(node: SceneNode, field: string, value: unknown): boolean {
+  const stop = gradientStopBindingTarget(field)
+  const paint = stop && node[stop.list].at(stop.index)
+  const color = stop && paint?.gradientStops?.at(stop.stop)?.color
+  if (!paint?.visible || paint.opacity !== 1 || !color || !isColor(value)) return false
+  return sameColor(color, value)
 }

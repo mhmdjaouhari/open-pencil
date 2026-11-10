@@ -29,6 +29,29 @@ export interface MarkupUses {
   layers: WeakMap<es.SyntaxNode, string>
   /** Effects of the `shaders` library its layers fill with. */
   shaders: Set<string>
+  /** The function the code merges class names with, if it has one (`cn`). */
+  classNames?: { module: string; name: string }
+}
+
+/** Several classes on one element, skipping a caller's that is absent. */
+const JOINED = es.parseExpression("$classes.filter(Boolean).join(' ')")
+
+/**
+ * Several sources of classes as one `className` value: the code's own merge function when it has
+ * one (`cn('…', props.className)`), whose import is recorded, or else joined in place.
+ */
+export function mergedClasses(classes: es.SyntaxNode[], uses: MarkupUses): es.SyntaxNode {
+  const merge = uses.classNames
+  if (!merge) return es.fill(JOINED, { $classes: es.array(classes) })
+  const imported = uses.connected.get(merge.module) ?? new Set()
+  imported.add(merge.name)
+  uses.connected.set(merge.module, imported)
+  return {
+    type: 'CallExpression',
+    callee: es.identifier(merge.name),
+    arguments: classes,
+    optional: false
+  }
 }
 
 export const numeric = (name: string, value: number) =>

@@ -234,6 +234,18 @@ export interface GeneratedComponent {
 export interface ComponentGeneratorOptions {
   /** A stylesheet beside the component, by default, or Tailwind utilities in its markup. */
   styling?: ComponentStyling
+  /**
+   * Custom properties the code's Tailwind theme declares (`--color-primary`), whose utilities
+   * Tailwind styling writes (`bg-primary`); `layerComponents` adds the document's tokens.
+   */
+  themeVariables?: readonly string[]
+  /** The font family the code's page sets, which Tailwind styling leaves elements to inherit. */
+  inheritedFontFamily?: string
+  /**
+   * The function the code merges class names with, such as `cn` from `@/lib/utils`: an element
+   * with more than one source of classes calls it rather than joining them in place.
+   */
+  classNames?: { module: string; name: string }
 }
 
 export type ComponentGenerator = (

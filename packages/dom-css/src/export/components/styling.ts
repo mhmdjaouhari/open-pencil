@@ -1,5 +1,8 @@
 import { layerClassNames } from '#dom-css/behaviours/states/names'
-import { stateTailwindClasses } from '#dom-css/behaviours/states/tailwind'
+import {
+  stateTailwindClasses,
+  type StateTailwindOptions
+} from '#dom-css/behaviours/states/tailwind'
 
 import type { ComponentModel } from './model'
 import { shaderElements } from './shaders'
@@ -18,11 +21,12 @@ export const SHADER_UTILITIES = 'pointer-events-none absolute inset-0 -z-10 roun
  */
 export function componentClasses(
   component: ComponentModel,
-  styling: ComponentStyling
+  styling: ComponentStyling,
+  options: StateTailwindOptions = {}
 ): (className: string) => string {
   if (styling === 'css') return (className) => className
   const readable = layerClassNames(component.styles)
-  const utilities = stateTailwindClasses(component.styles)
+  const utilities = stateTailwindClasses(component.styles, options)
   const byClass = new Map<string, string>()
   for (const [element, className] of readable) byClass.set(className, utilities.get(element) ?? '')
   for (const { shader } of shaderElements(component.tree))

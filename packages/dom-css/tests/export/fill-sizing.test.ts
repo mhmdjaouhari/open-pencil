@@ -34,8 +34,9 @@ describe('fill sizing in DOM/CSS export', () => {
 
     expect(styleOf(doc, 'Tall')).toMatchObject({ width: '40px', 'align-self': 'stretch' })
     expect(styleOf(doc, 'Tall')?.height).toBeUndefined()
-    // Along the row, fill is flex-grow and the size stays as its basis.
-    expect(styleOf(doc, 'Wide')).toMatchObject({ width: '40px', height: '50px', 'flex-grow': '1' })
+    // Along the row, fill shares the room equally from no basis, as auto layout does.
+    expect(styleOf(doc, 'Wide')).toMatchObject({ height: '50px', flex: '1 1 0%', 'min-width': '0' })
+    expect(styleOf(doc, 'Wide')?.width).toBeUndefined()
   })
 
   it('leaves out the size of each axis a grid child fills', () => {

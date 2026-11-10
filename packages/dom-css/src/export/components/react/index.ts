@@ -41,7 +41,15 @@ import {
   STEPPERS,
   type Parameter
 } from './fields'
-import { classValue, drawing, elementLayers, moduleClass, numeric, type MarkupUses } from './shared'
+import {
+  classValue,
+  drawing,
+  elementLayers,
+  mergedClasses,
+  moduleClass,
+  numeric,
+  type MarkupUses
+} from './shared'
 
 /**
  * The Radix primitive a kind renders, from the unified `radix-ui` package, and the component
@@ -98,9 +106,6 @@ const HEADING_STYLE = jsx.container(
     )
   )
 )
-
-/** Several classes on one element, skipping a caller's that is absent. */
-const CLASS_NAMES = es.parseExpression("$classes.filter(Boolean).join(' ')")
 
 /** Whether a layer renders as a native button: a button's root, or a number field's stepper. */
 const isNativeButton = (node: ComponentElement, kind: GeneratedKind) =>
@@ -189,7 +194,7 @@ function classNameOf(node: ComponentElement, root: boolean, uses: MarkupUses): e
     ...(root ? [es.parseExpression('props.className')] : [])
   ]
   const only = classes.length === 1 ? classes.at(0) : undefined
-  return only ?? es.fill(CLASS_NAMES, { $classes: es.array(classes) })
+  return only ?? mergedClasses(classes, uses)
 }
 
 /**
@@ -518,7 +523,7 @@ export const reactComponent: ComponentGenerator = async (component, options = {}
   const styling = options.styling ?? 'css'
   const radix = RADIX[component.kind]
   const stylesPath = `${component.name}.module.css`
-  const classOf = componentClasses(component, styling)
+  const classOf = componentClasses(component, styling, options)
   const uses: MarkupUses = {
     component,
     // Styled with Tailwind, a layer's utilities are written out; otherwise its module class.
@@ -530,7 +535,8 @@ export const reactComponent: ComponentGenerator = async (component, options = {}
     connected: new Map(),
     layers: new WeakMap(),
     icons: false,
-    shaders: new Set()
+    shaders: new Set(),
+    classNames: options.classNames
   }
   const body = element(component.tree, uses, 1)
   const imports = [

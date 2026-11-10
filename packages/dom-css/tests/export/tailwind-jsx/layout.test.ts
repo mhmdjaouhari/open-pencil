@@ -130,7 +130,7 @@ describe('Tailwind JSX layout classes', () => {
       layoutGrow: 1
     })
     const jsx = tw(graph, child.id)
-    expect(jsx).toContain('grow')
+    expect(jsx).toContain('flex-1')
   })
 
   test('wrap emits flex-wrap', () => {

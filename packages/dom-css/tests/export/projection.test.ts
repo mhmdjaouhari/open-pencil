@@ -237,13 +237,13 @@ describe('DOM projection sizes', () => {
     }
 
     expect(style([gradient('GRADIENT_LINEAR')])).toMatchObject({
-      'background-image': 'linear-gradient(90deg, #FF0000 0%, #0000FF 100%)'
+      'background-image': 'linear-gradient(to right, #FF0000, #0000FF)'
     })
     expect(style([gradient('GRADIENT_RADIAL')])?.['background-image']).toBe(
-      'radial-gradient(50% 50% at 50% 50%, #FF0000 0%, #0000FF 100%)'
+      'radial-gradient(50% 50% at 50% 50%, #FF0000, #0000FF)'
     )
     expect(style([gradient('GRADIENT_ANGULAR')])?.['background-image']).toBe(
-      'conic-gradient(from 90deg at 50% 50%, #FF0000 0%, #0000FF 100%)'
+      'conic-gradient(from 90deg at 50% 50%, #FF0000, #0000FF)'
     )
     // A colour above another fill can only stack as an image of itself.
     expect(style([solid(1, 0, 0), solid(0, 0, 1, 0.5)])).toMatchObject({
@@ -251,7 +251,7 @@ describe('DOM projection sizes', () => {
       'background-color': '#FF0000'
     })
     expect(style([solid(1, 1, 1), gradient('GRADIENT_LINEAR')])).toMatchObject({
-      'background-image': 'linear-gradient(90deg, #FF0000 0%, #0000FF 100%)',
+      'background-image': 'linear-gradient(to right, #FF0000, #0000FF)',
       'background-color': '#FFFFFF'
     })
     const single = style([solid(1, 0, 0)])
@@ -288,9 +288,9 @@ describe('DOM projection sizes', () => {
     expect(style({ m00: 2, m01: 0, m02: -0.5, m10: 0, m11: 1, m12: 0 })).toBe(
       'linear-gradient(90deg, #FF0000 25%, #0000FF 75%)'
     )
-    // Handles from corner to corner of a wide box run the whole CSS line.
+    // Handles from corner to corner run the whole CSS line, which the corner keyword says.
     expect(style({ m00: 0.5, m01: 0.5, m02: 0, m10: -0.5, m11: 0.5, m12: 0.5 })).toBe(
-      'linear-gradient(116.565deg, #FF0000 0%, #0000FF 100%)'
+      'linear-gradient(to bottom right, #FF0000, #0000FF)'
     )
   })
 

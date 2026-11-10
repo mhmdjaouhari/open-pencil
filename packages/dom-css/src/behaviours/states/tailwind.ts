@@ -1,4 +1,5 @@
 import { splitWhitespace } from '#dom-css/export/html'
+import { tidyUtilities, withoutInheritedFont } from '#dom-css/export/utilities'
 import type { DesignDocument, DesignNode, DesignStyleDeclaration } from '#dom-css/types'
 import { compact } from 'es-toolkit/array'
 import { twirl } from 'twirlwind'
@@ -9,6 +10,8 @@ import type { StateCondition, StateElement, StateNode, StateStyles } from './typ
 export interface StateTailwindOptions {
   /** Custom properties declared in `@theme`; a `var()` naming one becomes its utility. */
   themeVariables?: readonly string[]
+  /** The font family the page sets, which elements inherit rather than restate. */
+  inheritedFontFamily?: string
 }
 
 /** A value inside a variant: bare when it is a plain word, else quoted with spaces as `_`. */
@@ -38,12 +41,11 @@ function variant(condition: StateCondition, group: string | null): string {
 }
 
 function utilities(style: DesignStyleDeclaration, options: StateTailwindOptions): string[] {
-  const css = Object.entries(style)
+  const css = Object.entries(withoutInheritedFont(style, options.inheritedFontFamily))
     .map(([property, value]) => `${property}: ${value}`)
     .join('; ')
-  return css
-    ? splitWhitespace(twirl(css, { theme: { variables: options.themeVariables ?? [] } }))
-    : []
+  const variables = options.themeVariables ?? []
+  return css ? tidyUtilities(splitWhitespace(twirl(css, { theme: { variables } })), variables) : []
 }
 
 /** What each element's utilities are written against. */
