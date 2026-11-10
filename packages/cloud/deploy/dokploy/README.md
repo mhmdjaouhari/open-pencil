@@ -88,5 +88,7 @@ can publish, viewers only use it.
 
 ## Backups and upgrades
 
-Back up the `database` and `storage` volumes together. Pushing the branch builds a new image;
-**Redeploy** in Dokploy pulls it, and the server migrates the database before it accepts requests.
+Back up the `database` and `storage` volumes together. Pushing the branch builds a new image; once
+the **Cloud image (Syndic)** workflow has finished, **Redeploy** in Dokploy pulls it
+(`pull_policy: always`), and the server migrates the database before it accepts requests. A
+redeploy while the workflow still runs gets the previous image.

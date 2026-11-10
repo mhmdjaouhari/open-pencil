@@ -6,6 +6,8 @@ name: openpencil-cloud
 services:
   openpencil:
     image: ${OPENPENCIL_IMAGE:-ghcr.io/mhmdjaouhari/openpencil-cloud:syndic}
+    # Each push republishes the same tag; without this a redeploy keeps the copy the server has.
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       postgres:
