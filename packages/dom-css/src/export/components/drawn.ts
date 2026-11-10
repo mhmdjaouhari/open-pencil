@@ -13,7 +13,14 @@ const DRAWN = [
   'strokes',
   'effects',
   'opacity',
-  'cornerRadius',
+  'cornerRadius'
+] as const satisfies readonly (keyof SceneNode)[]
+
+/**
+ * What a text layer draws besides. Only text draws its font: a `.fig` keeps no font on other
+ * layers, so after a round trip theirs no longer follows a scaled instance's.
+ */
+const TEXT_DRAWN = [
   'fontFamily',
   'fontSize',
   'fontWeight',
@@ -98,6 +105,7 @@ function layerMatches(
   if (drawn.type === 'TEXT' && !bound(main, 'TEXT') && drawn.text !== main.text) return false
   if (drawn.type === 'INSTANCE' && drawn.componentId !== main.componentId) return false
   if (!same(drawn, main, DRAWN) || !same(drawn, main, LAYOUT)) return false
+  if (drawn.type === 'TEXT' && !same(drawn, main, TEXT_DRAWN)) return false
   // A slot's content is the instance's own, which the component's slot prop passes on.
   return bound(main, 'SLOT_CONTENT') || childrenMatch(graph, drawn, source, scale)
 }
